@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { KIND_LABELS, type Category, type Kind } from "@/lib/money-shared";
+import type { Category, Kind } from "@/lib/money-shared";
+import { useI18n } from "../../locale-provider";
 import { saveMoneySettings } from "../actions";
 
 const field = "h-9 w-full rounded-lg border border-border bg-transparent px-2 text-sm text-fg outline-none focus:border-fg";
@@ -13,6 +14,7 @@ export default function CategoriesForm({ categories, opening }: { categories: Ca
   const [balance, setBalance] = useState(String(opening));
   const [status, setStatus] = useState<"idle" | "dirty" | "saved" | "error">("idle");
   const [pending, startTransition] = useTransition();
+  const { t } = useI18n();
 
   const amount = Number(balance.replace(",", "."));
   const invalid = balance.trim() === "" || !Number.isFinite(amount) || list.some((c) => !c.name.trim());
@@ -55,7 +57,7 @@ export default function CategoriesForm({ categories, opening }: { categories: Ca
     <div className="flex flex-col gap-6 pb-20">
       <section>
         <h2 className="mb-2 text-xs font-medium uppercase tracking-wider text-muted">
-          <label htmlFor="opening">Αρχικό υπόλοιπο (€)</label>
+          <label htmlFor="opening">{t("money.opening")}</label>
         </h2>
         <div className="rounded-2xl border border-border bg-surface p-4">
           <input
@@ -69,35 +71,35 @@ export default function CategoriesForm({ categories, opening }: { categories: Ca
             }}
           />
           <p className="mt-2 text-xs text-muted">
-            Τα χρήματα που είχες πριν από την πρώτη κίνηση που θα γράψεις. Το τρέχον υπόλοιπο ξεκινάει από εδώ.
+            {t("money.openingHelp")}
           </p>
         </div>
       </section>
 
       {(["expense", "income"] as Kind[]).map((kind) => (
         <section key={kind}>
-          <h2 className="mb-2 text-xs font-medium uppercase tracking-wider text-muted">Κατηγορίες: {KIND_LABELS[kind]}</h2>
+          <h2 className="mb-2 text-xs font-medium uppercase tracking-wider text-muted">{t("money.categoriesOf", { kind: t(`kind.${kind}`) })}</h2>
           <ul className="divide-y divide-border rounded-2xl border border-border bg-surface">
             {list
               .filter((c) => c.kind === kind && !c.archived)
               .map((c) => (
                 <li key={c.id} className="flex items-center gap-2 p-3">
                   <input
-                    aria-label="Όνομα κατηγορίας"
+                    aria-label={t("money.categoryName")}
                     className={`${field} ${c.name.trim() ? "" : "border-bad"}`}
                     value={c.name}
                     maxLength={60}
-                    placeholder="Όνομα κατηγορίας"
+                    placeholder={t("money.categoryName")}
                     onChange={(e) => patch(c.id, { name: e.target.value })}
                   />
                   <button type="button" className={smallBtn} onClick={() => remove(c)}>
-                    {created.has(c.id) ? "Διαγραφή" : "Αρχειοθέτηση"}
+                    {t(created.has(c.id) ? "delete" : "archive")}
                   </button>
                 </li>
               ))}
             <li className="p-3">
               <button type="button" className="text-sm text-muted hover:text-fg" onClick={() => add(kind)}>
-                + Νέα κατηγορία
+                {t("money.addCategory")}
               </button>
             </li>
           </ul>
@@ -106,20 +108,20 @@ export default function CategoriesForm({ categories, opening }: { categories: Ca
 
       {archived.length > 0 && (
         <section>
-          <h2 className="mb-2 text-xs font-medium uppercase tracking-wider text-muted">Αρχειοθετημένες</h2>
+          <h2 className="mb-2 text-xs font-medium uppercase tracking-wider text-muted">{t("money.archived")}</h2>
           <ul className="divide-y divide-border rounded-2xl border border-border bg-surface text-sm">
             {archived.map((c) => (
               <li key={c.id} className="flex items-center justify-between p-3">
                 <span>
-                  {c.name} <span className="text-xs text-muted">· {KIND_LABELS[c.kind]}</span>
+                  {c.name} <span className="text-xs text-muted">· {t(`kind.${c.kind}`)}</span>
                 </span>
                 <button type="button" className={smallBtn} onClick={() => patch(c.id, { archived: false })}>
-                  Επαναφορά
+                  {t("restore")}
                 </button>
               </li>
             ))}
           </ul>
-          <p className="mt-2 text-xs text-muted">Δεν εμφανίζονται στη νέα κίνηση, αλλά οι παλιές κινήσεις τους μένουν.</p>
+          <p className="mt-2 text-xs text-muted">{t("money.archivedHelp")}</p>
         </section>
       )}
 
@@ -131,13 +133,13 @@ export default function CategoriesForm({ categories, opening }: { categories: Ca
             disabled={pending || invalid || status === "idle" || status === "saved"}
             className="rounded-lg bg-fg px-4 py-2 text-sm font-medium text-bg disabled:opacity-40"
           >
-            {pending ? "Αποθήκευση…" : "Αποθήκευση"}
+            {t(pending ? "saving" : "save")}
           </button>
           <span role="status" className="text-sm">
-            {invalid && <span className="text-bad">Συμπλήρωσε τα πεδία με κόκκινο.</span>}
-            {!invalid && status === "dirty" && <span className="text-muted">Υπάρχουν αλλαγές που δεν αποθηκεύτηκαν.</span>}
-            {!invalid && status === "saved" && <span className="text-good">Αποθηκεύτηκε.</span>}
-            {!invalid && status === "error" && <span className="text-bad">Δεν αποθηκεύτηκε.</span>}
+            {invalid && <span className="text-bad">{t("fillRed")}</span>}
+            {!invalid && status === "dirty" && <span className="text-muted">{t("unsaved")}</span>}
+            {!invalid && status === "saved" && <span className="text-good">{t("saved")}</span>}
+            {!invalid && status === "error" && <span className="text-bad">{t("notSaved")}</span>}
           </span>
         </div>
       </div>

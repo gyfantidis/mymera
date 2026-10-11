@@ -2,8 +2,6 @@
 
 export type Kind = "income" | "expense";
 
-export const KIND_LABELS: Record<Kind, string> = { income: "Έσοδα", expense: "Έξοδα" };
-
 export type Category = { id: string; name: string; kind: Kind; archived: boolean };
 
 export type Transaction = {
@@ -13,11 +11,6 @@ export type Transaction = {
   amount: number;
   note: string;
 };
-
-const euro = new Intl.NumberFormat("el-GR", { style: "currency", currency: "EUR" });
-export const formatMoney = (n: number) => euro.format(n);
-// Explicit sign, for results and balances.
-export const formatSigned = (n: number) => (n > 0 ? "+" : n < 0 ? "−" : "") + euro.format(Math.abs(n));
 
 export const isMonth = (s: unknown): s is string => typeof s === "string" && /^\d{4}-(0[1-9]|1[0-2])$/.test(s);
 

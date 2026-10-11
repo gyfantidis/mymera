@@ -1,15 +1,9 @@
 import { addDays } from "./dates";
+import type { I18n } from "./i18n";
 
 export type Period = "week" | "month" | "quarter" | "year";
 
 export const PERIODS: Period[] = ["week", "month", "quarter", "year"];
-
-export const PERIOD_LABELS: Record<Period, string> = {
-  week: "Εβδομάδα",
-  month: "Μήνας",
-  quarter: "Τρίμηνο",
-  year: "Έτος",
-};
 
 export const isPeriod = (s: unknown): s is Period => PERIODS.includes(s as Period);
 
@@ -52,15 +46,9 @@ export function daysIn(from: string, to: string): string[] {
   return out;
 }
 
-const fmt = (day: string, opts: Intl.DateTimeFormatOptions) => utc(day).toLocaleDateString("el-GR", { ...opts, timeZone: "UTC" });
-
-export function periodLabel(period: Period, from: string, to: string): string {
-  if (period === "week") return `${fmt(from, { day: "numeric", month: "short" })} – ${fmt(to, { day: "numeric", month: "short", year: "numeric" })}`;
-  if (period === "month") return fmt(from, { month: "long", year: "numeric" });
-  if (period === "quarter") return `${Math.floor(utc(from).getUTCMonth() / 3) + 1}ο τρίμηνο ${from.slice(0, 4)}`;
+export function periodLabel(period: Period, from: string, to: string, f: I18n): string {
+  if (period === "week") return `${f.shortDay(from)} – ${f.shortDayYear(to)}`;
+  if (period === "month") return f.monthYear(from);
+  if (period === "quarter") return f.t("period.quarterLabel", { n: Math.floor(utc(from).getUTCMonth() / 3) + 1, year: from.slice(0, 4) });
   return from.slice(0, 4);
 }
-
-export const shortDay = (day: string) => fmt(day, { day: "numeric", month: "short" });
-export const weekdayShort = (day: string) => fmt(day, { weekday: "short" });
-export const monthShort = (day: string) => fmt(day, { month: "short" });

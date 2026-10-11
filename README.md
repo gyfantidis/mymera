@@ -33,6 +33,10 @@ Income and expenses are entered by hand with a date, a category and an amount. T
 
 Goals describe a direction over weeks and never change the daily score. There are three kinds: change a metric by a percentage against your own recent average (YouTube −15%), reach a value, optionally by a date (weight, or the money balance), and hit a metric's target a number of days per week.
 
+## Languages
+
+The interface is available in English and Greek, switchable under Settings (stored in a cookie). `MYMERA_DEFAULT_LOCALE` sets the language shown before a choice is made and the language of the starting template. Names you give to sections, metrics and categories are your own data and are not translated. To add a language, copy `lib/i18n/en.ts` and register it in `lib/i18n/index.ts`.
+
 ## Running locally
 
 You need Node.js and Docker.

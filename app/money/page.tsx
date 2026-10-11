@@ -1,19 +1,21 @@
 import Link from "next/link";
 import { connection } from "next/server";
 import { Suspense } from "react";
-import { dayOf, formatDay } from "@/lib/dates";
+import { dayOf } from "@/lib/dates";
+import type { I18n } from "@/lib/i18n";
+import { getI18n } from "@/lib/i18n/server";
 import { balanceAt, getCategories, getTransactions } from "@/lib/money";
-import { formatMoney, formatSigned, isMonth, totalsByCategory, type CategoryTotal } from "@/lib/money-shared";
+import { isMonth, totalsByCategory, type CategoryTotal } from "@/lib/money-shared";
 import { periodLabel, periodRange, shiftPeriod } from "@/lib/periods";
 import AddForm from "./add-form";
 import DeleteButton from "./delete-button";
 import MoneyNav, { Card, tone } from "./money-nav";
+import LoadingText from "../loading-text";
 
 export default function Page({ searchParams }: PageProps<"/money">) {
   return (
     <main className="flex flex-col gap-6">
-      <MoneyNav active="month" />
-      <Suspense fallback={<p className="py-10 text-center text-muted">Φόρτωση…</p>}>
+      <Suspense fallback={<LoadingText />}>
         <Month searchParams={searchParams} />
       </Suspense>
     </main>
@@ -22,6 +24,8 @@ export default function Page({ searchParams }: PageProps<"/money">) {
 
 async function Month({ searchParams }: Pick<PageProps<"/money">, "searchParams">) {
   const { m } = await searchParams;
+  const f = await getI18n();
+  const { t } = f;
   await connection();
   const today = dayOf(new Date());
   const thisMonth = today.slice(0, 7);
@@ -39,71 +43,72 @@ async function Month({ searchParams }: Pick<PageProps<"/money">, "searchParams">
   const expense = sum(expenses);
   const result = income - expense;
 
-  const days = [...new Set(transactions.map((t) => t.day))];
+  const days = [...new Set(transactions.map((entry) => entry.day))];
   const arrow = "rounded-lg px-3 py-2 text-muted hover:bg-track";
 
   return (
     <>
+      <MoneyNav active="month" f={f} />
       <header className="flex items-center justify-between">
-        <Link href={`/money?m=${shiftPeriod("month", from, -1).slice(0, 7)}`} aria-label="Προηγούμενος μήνας" className={arrow}>
+        <Link href={`/money?m=${shiftPeriod("month", from, -1).slice(0, 7)}`} aria-label={t("money.prevMonth")} className={arrow}>
           ←
         </Link>
-        <h1 className="text-lg font-semibold capitalize">{periodLabel("month", from, to)}</h1>
+        <h1 className="text-lg font-semibold capitalize">{periodLabel("month", from, to, f)}</h1>
         {isCurrent ? (
           <span className="px-3 py-2 text-transparent">→</span>
         ) : (
-          <Link href={`/money?m=${shiftPeriod("month", from, 1).slice(0, 7)}`} aria-label="Επόμενος μήνας" className={arrow}>
+          <Link href={`/money?m=${shiftPeriod("month", from, 1).slice(0, 7)}`} aria-label={t("money.nextMonth")} className={arrow}>
             →
           </Link>
         )}
       </header>
 
       <dl className="grid grid-cols-2 gap-3">
-        <Card label="Έσοδα" value={formatMoney(income)} />
-        <Card label="Έξοδα" value={formatMoney(expense)} />
-        <Card label="Αποτέλεσμα μήνα" value={formatSigned(result)} tone={tone(result)}>
-          έσοδα μείον έξοδα
+        <Card label={t("kind.income")} value={f.money(income)} />
+        <Card label={t("kind.expense")} value={f.money(expense)} />
+        <Card label={t("money.monthResult")} value={f.signed(result)} tone={tone(result)}>
+          {t("money.incomeMinusExpense")}
         </Card>
-        <Card label={isCurrent ? "Τρέχον υπόλοιπο" : "Υπόλοιπο στο τέλος του μήνα"} value={formatSigned(balance)} tone={tone(balance)}>
-          μαζί με τους προηγούμενους μήνες
+        <Card label={t(isCurrent ? "money.currentBalance" : "money.balanceMonthEnd")} value={f.signed(balance)} tone={tone(balance)}>
+          {t("money.withPrevMonths")}
         </Card>
       </dl>
 
       <section>
-        <h2 className="mb-2 text-xs font-medium uppercase tracking-wider text-muted">Νέα κίνηση</h2>
+        <h2 className="mb-2 text-xs font-medium uppercase tracking-wider text-muted">{t("money.newEntry")}</h2>
         <AddForm key={month} categories={categories.filter((c) => !c.archived)} defaultDay={lastDay} min={from} max={lastDay} />
       </section>
 
-      <Breakdown title="Πού πήγαν τα έξοδα" rows={expenses} total={expense} bar="bg-bad" />
-      <Breakdown title="Από πού ήρθαν τα έσοδα" rows={incomes} total={income} bar="bg-good" />
+      <Breakdown title={t("money.monthExpenses")} rows={expenses} total={expense} bar="bg-bad" f={f} />
+      <Breakdown title={t("money.monthIncome")} rows={incomes} total={income} bar="bg-good" f={f} />
 
       <section>
-        <h2 className="mb-2 text-xs font-medium uppercase tracking-wider text-muted">Κινήσεις</h2>
+        <h2 className="mb-2 text-xs font-medium uppercase tracking-wider text-muted">{t("money.entries")}</h2>
         {transactions.length === 0 ? (
-          <p className="rounded-2xl border border-border bg-surface p-6 text-center text-sm text-muted">Δεν υπάρχουν κινήσεις αυτόν τον μήνα.</p>
+          <p className="rounded-2xl border border-border bg-surface p-6 text-center text-sm text-muted">{t("money.noEntries")}</p>
         ) : (
           <div className="flex flex-col gap-3">
             {days.map((day) => (
               <div key={day}>
-                <h3 className="mb-1 text-xs capitalize text-muted">{formatDay(day)}</h3>
+                <h3 className="mb-1 text-xs capitalize text-muted">{f.day(day)}</h3>
                 <ul className="divide-y divide-border rounded-2xl border border-border bg-surface">
                   {transactions
-                    .filter((t) => t.day === day)
-                    .map((t) => {
-                      const category = byId.get(t.categoryId);
+                    .filter((entry) => entry.day === day)
+                    .map((entry) => {
+                      const category = byId.get(entry.categoryId);
                       const isIncome = category?.kind === "income";
                       const name = category?.name ?? "—";
                       return (
-                        <li key={t.id} className="flex items-center gap-2 py-2 pl-4 pr-2">
+                        <li key={entry.id} className="flex items-center gap-2 py-2 pl-4 pr-2">
                           <div className="min-w-0 flex-1">
                             <p className="truncate text-sm font-medium">{name}</p>
-                            {t.note && <p className="truncate text-xs text-muted">{t.note}</p>}
+                            {entry.note && <p className="truncate text-xs text-muted">{entry.note}</p>}
                           </div>
                           <span className={`shrink-0 text-sm tabular-nums ${isIncome ? "text-good" : ""}`}>
                             {isIncome ? "+" : "−"}
-                            {formatMoney(t.amount)}
+                            {f.money(entry.amount)}
                           </span>
-                          <DeleteButton id={t.id} label={`${name} ${formatMoney(t.amount)}`} />
+                          <DeleteButton id={entry.id} label={`${name} ${f.money(entry.amount)}`} />
                         </li>
                       );
                     })}
@@ -117,7 +122,7 @@ async function Month({ searchParams }: Pick<PageProps<"/money">, "searchParams">
   );
 }
 
-function Breakdown({ title, rows, total, bar }: { title: string; rows: CategoryTotal[]; total: number; bar: string }) {
+function Breakdown({ title, rows, total, bar, f }: { title: string; rows: CategoryTotal[]; total: number; bar: string; f: I18n }) {
   if (rows.length === 0) return null;
   return (
     <section>
@@ -128,7 +133,7 @@ function Breakdown({ title, rows, total, bar }: { title: string; rows: CategoryT
             <div className="flex items-baseline justify-between gap-3 text-sm">
               <span className="font-medium">{category.name}</span>
               <span className="tabular-nums">
-                {formatMoney(amount)} <span className="text-xs text-muted">{Math.round((amount / total) * 100)}%</span>
+                {f.money(amount)} <span className="text-xs text-muted">{Math.round((amount / total) * 100)}%</span>
               </span>
             </div>
             <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-track">

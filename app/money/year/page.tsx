@@ -3,15 +3,15 @@ import { connection } from "next/server";
 import { Suspense } from "react";
 import { addDays, dayOf } from "@/lib/dates";
 import { balanceAt, getCategories, getTransactions, monthlyTotals } from "@/lib/money";
-import { formatMoney, formatSigned, totalsByCategory } from "@/lib/money-shared";
-import { monthShort } from "@/lib/periods";
+import { getI18n } from "@/lib/i18n/server";
+import { totalsByCategory } from "@/lib/money-shared";
 import MoneyNav, { Card, tone } from "../money-nav";
+import LoadingText from "../../loading-text";
 
 export default function Page({ searchParams }: PageProps<"/money/year">) {
   return (
     <main className="flex flex-col gap-6">
-      <MoneyNav active="year" />
-      <Suspense fallback={<p className="py-10 text-center text-muted">Φόρτωση…</p>}>
+      <Suspense fallback={<LoadingText />}>
         <Year searchParams={searchParams} />
       </Suspense>
     </main>
@@ -20,6 +20,8 @@ export default function Page({ searchParams }: PageProps<"/money/year">) {
 
 async function Year({ searchParams }: Pick<PageProps<"/money/year">, "searchParams">) {
   const { y } = await searchParams;
+  const f = await getI18n();
+  const { t } = f;
   await connection();
   const today = dayOf(new Date());
   const thisYear = Number(today.slice(0, 4));
@@ -51,44 +53,45 @@ async function Year({ searchParams }: Pick<PageProps<"/money/year">, "searchPara
 
   return (
     <>
+      <MoneyNav active="year" f={f} />
       <header className="flex items-center justify-between">
-        <Link href={`/money/year?y=${year - 1}`} aria-label="Προηγούμενο έτος" className={arrow}>
+        <Link href={`/money/year?y=${year - 1}`} aria-label={t("money.prevYear")} className={arrow}>
           ←
         </Link>
         <h1 className="text-lg font-semibold">{year}</h1>
         {year === thisYear ? (
           <span className="px-3 py-2 text-transparent">→</span>
         ) : (
-          <Link href={`/money/year?y=${year + 1}`} aria-label="Επόμενο έτος" className={arrow}>
+          <Link href={`/money/year?y=${year + 1}`} aria-label={t("money.nextYear")} className={arrow}>
             →
           </Link>
         )}
       </header>
 
       <dl className="grid grid-cols-2 gap-3">
-        <Card label="Έσοδα" value={formatMoney(income)} />
-        <Card label="Έξοδα" value={formatMoney(expense)}>
-          {formatMoney(expense / lastMonth)} τον μήνα κατά μέσο όρο
+        <Card label={t("kind.income")} value={f.money(income)} />
+        <Card label={t("kind.expense")} value={f.money(expense)}>
+          {t("money.perMonthAvg", { amount: f.money(expense / lastMonth) })}
         </Card>
-        <Card label="Αποτέλεσμα έτους" value={formatSigned(result)} tone={tone(result)}>
-          έσοδα μείον έξοδα
+        <Card label={t("money.yearResult")} value={f.signed(result)} tone={tone(result)}>
+          {t("money.incomeMinusExpense")}
         </Card>
-        <Card label={year === thisYear ? "Τρέχον υπόλοιπο" : "Υπόλοιπο στο τέλος του έτους"} value={formatSigned(balance)} tone={tone(balance)}>
-          ξεκίνησε τη χρονιά στα {formatSigned(opening)}
+        <Card label={t(year === thisYear ? "money.currentBalance" : "money.balanceYearEnd")} value={f.signed(balance)} tone={tone(balance)}>
+          {t("money.startedYearAt", { amount: f.signed(opening) })}
         </Card>
       </dl>
 
       <section>
-        <h2 className="mb-2 text-xs font-medium uppercase tracking-wider text-muted">Ανά μήνα</h2>
+        <h2 className="mb-2 text-xs font-medium uppercase tracking-wider text-muted">{t("money.byMonth")}</h2>
         <div className="overflow-x-auto rounded-2xl border border-border bg-surface">
           <table className="w-full text-sm">
             <thead>
               <tr className="text-xs text-muted">
-                <th className="px-3 py-2 text-left font-normal">Μήνας</th>
-                <th className={`${cell} font-normal`}>Έσοδα</th>
-                <th className={`${cell} font-normal`}>Έξοδα</th>
-                <th className={`${cell} font-normal`}>Αποτέλεσμα</th>
-                <th className={`${cell} pr-3 font-normal`}>Υπόλοιπο</th>
+                <th className="px-3 py-2 text-left font-normal">{t("period.month")}</th>
+                <th className={`${cell} font-normal`}>{t("kind.income")}</th>
+                <th className={`${cell} font-normal`}>{t("kind.expense")}</th>
+                <th className={`${cell} font-normal`}>{t("money.col.result")}</th>
+                <th className={`${cell} pr-3 font-normal`}>{t("money.col.balance")}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border border-t border-border">
@@ -96,13 +99,13 @@ async function Year({ searchParams }: Pick<PageProps<"/money/year">, "searchPara
                 <tr key={r.month}>
                   <th className="px-3 py-2 text-left font-medium">
                     <Link href={`/money?m=${r.month}`} className="capitalize underline-offset-2 hover:underline">
-                      {monthShort(`${r.month}-01`)}
+                      {f.month(`${r.month}-01`)}
                     </Link>
                   </th>
-                  <td className={cell}>{formatMoney(r.income)}</td>
-                  <td className={cell}>{formatMoney(r.expense)}</td>
-                  <td className={`${cell} ${r.result > 0 ? "text-good" : r.result < 0 ? "text-bad" : ""}`}>{formatSigned(r.result)}</td>
-                  <td className={`${cell} pr-3`}>{formatSigned(r.balance)}</td>
+                  <td className={cell}>{f.money(r.income)}</td>
+                  <td className={cell}>{f.money(r.expense)}</td>
+                  <td className={`${cell} ${r.result > 0 ? "text-good" : r.result < 0 ? "text-bad" : ""}`}>{f.signed(r.result)}</td>
+                  <td className={`${cell} pr-3`}>{f.signed(r.balance)}</td>
                 </tr>
               ))}
             </tbody>
@@ -112,14 +115,14 @@ async function Year({ searchParams }: Pick<PageProps<"/money/year">, "searchPara
 
       {expenses.length > 0 && (
         <section>
-          <h2 className="mb-2 text-xs font-medium uppercase tracking-wider text-muted">Πού πήγαν τα έξοδα της χρονιάς</h2>
+          <h2 className="mb-2 text-xs font-medium uppercase tracking-wider text-muted">{t("money.yearExpenses")}</h2>
           <ul className="divide-y divide-border rounded-2xl border border-border bg-surface">
             {expenses.map(({ category, total }) => (
               <li key={category.id} className="px-4 py-3">
                 <div className="flex items-baseline justify-between gap-3 text-sm">
                   <span className="font-medium">{category.name}</span>
                   <span className="tabular-nums">
-                    {formatMoney(total)} <span className="text-xs text-muted">{Math.round((total / expense) * 100)}%</span>
+                    {f.money(total)} <span className="text-xs text-muted">{Math.round((total / expense) * 100)}%</span>
                   </span>
                 </div>
                 <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-track">

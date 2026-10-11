@@ -14,12 +14,3 @@ export function addDays(day: string, n: number): string {
   d.setUTCDate(d.getUTCDate() + n);
   return d.toISOString().slice(0, 10);
 }
-
-export function formatDay(day: string): string {
-  return new Date(day + "T12:00:00Z").toLocaleDateString("el-GR", {
-    weekday: "long",
-    day: "numeric",
-    month: "long",
-    timeZone: "UTC",
-  });
-}

@@ -2,10 +2,10 @@
 
 import { useState, useTransition } from "react";
 import { saveSettings } from "../actions";
+import type { Key } from "@/lib/i18n";
+import { useI18n } from "../locale-provider";
 import {
   CORE_TOTAL,
-  INPUT_LABELS,
-  ROLE_LABELS,
   defaultStep,
   type Config,
   type InputKind,
@@ -26,16 +26,20 @@ const newId = (prefix: string) => `${prefix}_${crypto.randomUUID().slice(0, 8)}`
 const canTrend = (m: Draft) => m.input === "number" && m.role !== "penalty";
 const isTrend = (m: Draft) => m.scoring === "trend" && canTrend(m);
 
-function problem(m: Draft): string | null {
-  if (!m.name.trim()) return "Λείπει το όνομα.";
-  if (m.role !== "track" && !(num(m.points) >= 0)) return "Οι πόντοι πρέπει να είναι αριθμός ≥ 0.";
+const ROLES: Role[] = ["core", "bonus", "penalty", "track"];
+const INPUTS: InputKind[] = ["number", "bool", "rating"];
+
+// Translation key of the first thing wrong with a metric, if any.
+function problem(m: Draft): Key | null {
+  if (!m.name.trim()) return "settings.err.name";
+  if (m.role !== "track" && !(num(m.points) >= 0)) return "settings.err.points";
   if (m.input === "bool") return null;
-  if (isTrend(m)) return num(m.target) >= 0 ? null : "Ο στόχος πρέπει να είναι αριθμός ≥ 0.";
-  if (!(num(m.target) > 0)) return "Ο στόχος πρέπει να είναι αριθμός > 0.";
-  if (m.input === "rating" && num(m.target) > 5) return "Ο στόχος της βαθμολογίας είναι έως 5.";
+  if (isTrend(m)) return num(m.target) >= 0 ? null : "settings.err.targetZero";
+  if (!(num(m.target) > 0)) return "settings.err.target";
+  if (m.input === "rating" && num(m.target) > 5) return "settings.err.rating";
   if (m.input === "number" && m.role === "penalty") {
-    if (!(num(m.free) >= 0)) return "Τα «ελεύθερα» πρέπει να είναι αριθμός ≥ 0.";
-    if (num(m.free) >= num(m.target)) return "Τα «ελεύθερα» πρέπει να είναι λιγότερα από τη μέγιστη ποινή.";
+    if (!(num(m.free) >= 0)) return "settings.err.free";
+    if (num(m.free) >= num(m.target)) return "settings.err.freeMax";
   }
   return null;
 }
@@ -56,6 +60,7 @@ export default function SettingsForm({ config }: { config: Config }) {
   const [open, setOpen] = useState<string | null>(null);
   const [status, setStatus] = useState<"idle" | "dirty" | "saved" | "error">("idle");
   const [pending, startTransition] = useTransition();
+  const { t } = useI18n();
 
   const liveSections = sections.filter((s) => !s.archived);
   const liveIds = new Set(liveSections.map((s) => s.id));
@@ -98,7 +103,7 @@ export default function SettingsForm({ config }: { config: Config }) {
 
   function addSection() {
     const id = newId("s");
-    setSections([...sections, { id, name: "Νέο section", archived: false }]);
+    setSections([...sections, { id, name: t("settings.newSection"), archived: false }]);
     setCreated(new Set(created).add(id));
     touch();
   }
@@ -134,7 +139,7 @@ export default function SettingsForm({ config }: { config: Config }) {
     patchMetric(m.id, {
       input,
       target: input === "bool" ? "1" : input === "rating" ? "4" : "30",
-      unit: input === "number" ? "λεπτά" : input === "rating" ? "/5" : "",
+      unit: input === "number" ? t("settings.defaultUnit") : input === "rating" ? "/5" : "",
       free: "0",
     });
   }
@@ -173,18 +178,18 @@ export default function SettingsForm({ config }: { config: Config }) {
           <section key={section.id} className="rounded-2xl border border-border bg-surface">
             <div className="flex items-center gap-2 border-b border-border p-3">
               <input
-                aria-label="Όνομα section"
+                aria-label={t("settings.sectionName")}
                 className={`${field} font-medium ${section.name.trim() ? "" : "border-bad"}`}
                 value={section.name}
                 maxLength={60}
                 onChange={(e) => patchSection(section.id, { name: e.target.value })}
               />
-              <button type="button" aria-label="Πάνω" className={smallBtn} disabled={si === 0} onClick={() => moveSection(section.id, -1)}>
+              <button type="button" aria-label={t("up")} className={smallBtn} disabled={si === 0} onClick={() => moveSection(section.id, -1)}>
                 ↑
               </button>
               <button
                 type="button"
-                aria-label="Κάτω"
+                aria-label={t("down")}
                 className={smallBtn}
                 disabled={si === liveSections.length - 1}
                 onClick={() => moveSection(section.id, 1)}
@@ -192,7 +197,7 @@ export default function SettingsForm({ config }: { config: Config }) {
                 ↓
               </button>
               <button type="button" className={smallBtn} onClick={() => removeSection(section)}>
-                {created.has(section.id) ? "Διαγραφή" : "Αρχειοθέτηση"}
+                {t(created.has(section.id) ? "delete" : "archive")}
               </button>
             </div>
 
@@ -209,29 +214,29 @@ export default function SettingsForm({ config }: { config: Config }) {
                       className="flex w-full items-center justify-between gap-3 text-left"
                     >
                       <span className="min-w-0">
-                        <span className="font-medium">{m.name.trim() || "Νέος τομέας"}</span>
+                        <span className="font-medium">{m.name.trim() || t("settings.newMetric")}</span>
                         <span className="block text-xs text-muted">
-                          {ROLE_LABELS[m.role]} · {INPUT_LABELS[m.input]}
-                          {isTrend(m) && " · τάση"}
+                          {t(`role.${m.role}`)} · {t(`input.${m.input}`)}
+                          {isTrend(m) && ` · ${t("settings.trend")}`}
                           {m.role === "core"
-                            ? ` · ${share.toFixed(1)} από τα ${CORE_TOTAL}`
+                            ? ` · ${t("settings.share", { share: share.toFixed(1), total: CORE_TOTAL })}`
                             : m.role === "track"
                               ? ""
-                              : ` · ${m.role === "penalty" ? "−" : "+"}${m.points} πόντοι`}
+                              : ` · ${t("settings.points", { sign: m.role === "penalty" ? "−" : "+", points: m.points })}`}
                         </span>
-                        {err && <span className="block text-xs text-bad">{err}</span>}
+                        {err && <span className="block text-xs text-bad">{t(err)}</span>}
                       </span>
-                      <span className="shrink-0 text-xs text-muted">{open === m.id ? "Κλείσιμο" : "Επεξεργασία"}</span>
+                      <span className="shrink-0 text-xs text-muted">{t(open === m.id ? "settings.close" : "settings.edit")}</span>
                     </button>
 
                     {open === m.id && (
                       <div className="mt-3 grid grid-cols-2 gap-3 text-xs text-muted">
                         <label className="col-span-2">
-                          Όνομα
+                          {t("settings.name")}
                           <input className={field} value={m.name} maxLength={60} onChange={(e) => patchMetric(m.id, { name: e.target.value })} />
                         </label>
                         <label>
-                          Section
+                          {t("settings.section")}
                           <select className={field} value={m.sectionId} onChange={(e) => patchMetric(m.id, { sectionId: e.target.value })}>
                             {liveSections.map((s) => (
                               <option key={s.id} value={s.id}>
@@ -241,71 +246,71 @@ export default function SettingsForm({ config }: { config: Config }) {
                           </select>
                         </label>
                         <label>
-                          Ρόλος
+                          {t("settings.role")}
                           <select className={field} value={m.role} onChange={(e) => patchMetric(m.id, { role: e.target.value as Role })}>
-                            {(Object.keys(ROLE_LABELS) as Role[]).map((r) => (
+                            {ROLES.map((r) => (
                               <option key={r} value={r}>
-                                {ROLE_LABELS[r]}
+                                {t(`role.${r}`)}
                               </option>
                             ))}
                           </select>
                         </label>
                         <label>
-                          Τύπος
+                          {t("settings.type")}
                           {created.has(m.id) ? (
                             <select className={field} value={m.input} onChange={(e) => changeInput(m, e.target.value as InputKind)}>
-                              {(Object.keys(INPUT_LABELS) as InputKind[]).map((k) => (
+                              {INPUTS.map((k) => (
                                 <option key={k} value={k}>
-                                  {INPUT_LABELS[k]}
+                                  {t(`input.${k}`)}
                                 </option>
                               ))}
                             </select>
                           ) : (
-                            <span className="flex h-9 items-center text-sm text-fg">{INPUT_LABELS[m.input]}</span>
+                            <span className="flex h-9 items-center text-sm text-fg">{t(`input.${m.input}`)}</span>
                           )}
                         </label>
                         {m.role !== "track" && (
                           <label>
-                            {m.role === "core" ? "Βάρος στο σκορ" : "Πόντοι"}
+                            {t(m.role === "core" ? "settings.weight" : "settings.pointsLabel")}
                             <input className={field} inputMode="decimal" value={m.points} onChange={(e) => patchMetric(m.id, { points: e.target.value })} />
                           </label>
                         )}
                         {canTrend(m) && (
                           <label>
-                            Υπολογισμός
+                            {t("settings.scoring")}
                             <select className={field} value={m.scoring} onChange={(e) => patchMetric(m.id, { scoring: e.target.value as Scoring })}>
-                              <option value="daily">Τιμή της ημέρας</option>
-                              <option value="trend">Τάση 7 ημερών προς στόχο</option>
+                              <option value="daily">{t("settings.scoringDaily")}</option>
+                              <option value="trend">{t("settings.scoringTrend")}</option>
                             </select>
                           </label>
                         )}
                         {m.input === "number" && (
                           <label>
-                            Μονάδα
+                            {t("settings.unit")}
                             <input className={field} value={m.unit} maxLength={20} onChange={(e) => patchMetric(m.id, { unit: e.target.value })} />
                           </label>
                         )}
                         {m.input !== "bool" && (
                           <label>
-                            {m.role === "penalty" ? "Μέγιστη ποινή στα" : isTrend(m) ? "Στόχος (0 = χωρίς στόχο)" : "Στόχος"}
+                            {t(m.role === "penalty" ? "settings.fullPenaltyAt" : isTrend(m) ? "settings.targetTrend" : "settings.target")}
                             <input className={field} inputMode="decimal" value={m.target} onChange={(e) => patchMetric(m.id, { target: e.target.value })} />
                           </label>
                         )}
                         {m.input === "number" && m.role === "penalty" && (
                           <label>
-                            Ελεύθερα (χωρίς ποινή)
+                            {t("settings.free")}
                             <input className={field} inputMode="decimal" value={m.free} onChange={(e) => patchMetric(m.id, { free: e.target.value })} />
                           </label>
                         )}
                         <div className="col-span-2 flex gap-2">
                           <button type="button" className={smallBtn} disabled={mi === 0} onClick={() => moveMetric(m.id, -1)}>
-                            ↑ Πάνω
+                            {t("moveUp")}
                           </button>
                           <button type="button" className={smallBtn} disabled={mi === rows.length - 1} onClick={() => moveMetric(m.id, 1)}>
-                            ↓ Κάτω
+                            {t("moveDown")}
                           </button>
                           <button type="button" className={`${smallBtn} ml-auto`} onClick={() => removeMetric(m)}>
-                            {created.has(m.id) ? "Διαγραφή" : "Αρχειοθέτηση"}
+                            {t(created.has(m.id) ? "delete" : "archive")}
                           </button>
                         </div>
                       </div>
@@ -317,7 +322,7 @@ export default function SettingsForm({ config }: { config: Config }) {
 
             <div className="border-t border-border p-3">
               <button type="button" className="text-sm text-muted hover:text-fg" onClick={() => addMetric(section.id)}>
-                + Νέος τομέας
+                {t("settings.addMetric")}
               </button>
             </div>
           </section>
@@ -325,20 +330,20 @@ export default function SettingsForm({ config }: { config: Config }) {
       })}
 
       <button type="button" onClick={addSection} className="rounded-2xl border border-dashed border-border py-3 text-sm text-muted hover:text-fg">
-        + Νέο section
+        {t("settings.addSection")}
       </button>
 
       {(archivedSections.length > 0 || archivedMetrics.length > 0) && (
         <section>
-          <h2 className="mb-2 text-xs font-medium uppercase tracking-wider text-muted">Αρχειοθετημένα</h2>
+          <h2 className="mb-2 text-xs font-medium uppercase tracking-wider text-muted">{t("settings.archived")}</h2>
           <ul className="divide-y divide-border rounded-2xl border border-border bg-surface text-sm">
             {archivedSections.map((s) => (
               <li key={s.id} className="flex items-center justify-between p-3">
                 <span>
-                  {s.name} <span className="text-xs text-muted">· section</span>
+                  {s.name} <span className="text-xs text-muted">· {t("settings.sectionTag")}</span>
                 </span>
                 <button type="button" className={smallBtn} onClick={() => patchSection(s.id, { archived: false })}>
-                  Επαναφορά
+                  {t("restore")}
                 </button>
               </li>
             ))}
@@ -346,12 +351,12 @@ export default function SettingsForm({ config }: { config: Config }) {
               <li key={m.id} className="flex items-center justify-between p-3">
                 <span>{m.name}</span>
                 <button type="button" className={smallBtn} onClick={() => patchMetric(m.id, { archived: false })}>
-                  Επαναφορά
+                  {t("restore")}
                 </button>
               </li>
             ))}
           </ul>
-          <p className="mt-2 text-xs text-muted">Τα αρχειοθετημένα δεν μετράνε στο σκορ, αλλά οι καταχωρήσεις τους δεν σβήνονται.</p>
+          <p className="mt-2 text-xs text-muted">{t("settings.archivedHelp")}</p>
         </section>
       )}
 
@@ -363,13 +368,13 @@ export default function SettingsForm({ config }: { config: Config }) {
             disabled={pending || invalid || status === "idle" || status === "saved"}
             className="rounded-lg bg-fg px-4 py-2 text-sm font-medium text-bg disabled:opacity-40"
           >
-            {pending ? "Αποθήκευση…" : "Αποθήκευση"}
+            {t(pending ? "saving" : "save")}
           </button>
           <span role="status" className="text-sm">
-            {invalid && <span className="text-bad">Διόρθωσε τα πεδία με κόκκινο.</span>}
-            {!invalid && status === "dirty" && <span className="text-muted">Υπάρχουν αλλαγές που δεν αποθηκεύτηκαν.</span>}
-            {!invalid && status === "saved" && <span className="text-good">Αποθηκεύτηκε.</span>}
-            {!invalid && status === "error" && <span className="text-bad">Δεν αποθηκεύτηκε.</span>}
+            {invalid && <span className="text-bad">{t("fixRed")}</span>}
+            {!invalid && status === "dirty" && <span className="text-muted">{t("unsaved")}</span>}
+            {!invalid && status === "saved" && <span className="text-good">{t("saved")}</span>}
+            {!invalid && status === "error" && <span className="text-bad">{t("notSaved")}</span>}
           </span>
         </div>
       </div>

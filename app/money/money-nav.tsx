@@ -1,22 +1,23 @@
 import Link from "next/link";
+import type { I18n } from "@/lib/i18n";
 
 const TABS = [
-  { key: "month", label: "Μήνας", href: "/money" },
-  { key: "year", label: "Έτος", href: "/money/year" },
-  { key: "categories", label: "Κατηγορίες", href: "/money/categories" },
+  { key: "month", href: "/money" },
+  { key: "year", href: "/money/year" },
+  { key: "categories", href: "/money/categories" },
 ] as const;
 
-export default function MoneyNav({ active }: { active: (typeof TABS)[number]["key"] }) {
+export default function MoneyNav({ active, f }: { active: (typeof TABS)[number]["key"]; f: I18n }) {
   return (
-    <nav aria-label="Χρήματα" className="flex gap-1 rounded-xl bg-track p-1">
-      {TABS.map((t) => (
+    <nav aria-label={f.t("nav.money")} className="flex gap-1 rounded-xl bg-track p-1">
+      {TABS.map((tab) => (
         <Link
-          key={t.key}
-          href={t.href}
-          aria-current={t.key === active ? "page" : undefined}
-          className={`flex-1 rounded-lg py-1.5 text-center text-sm ${t.key === active ? "bg-surface font-medium shadow-sm" : "text-muted hover:text-fg"}`}
+          key={tab.key}
+          href={tab.href}
+          aria-current={tab.key === active ? "page" : undefined}
+          className={`flex-1 rounded-lg py-1.5 text-center text-sm ${tab.key === active ? "bg-surface font-medium shadow-sm" : "text-muted hover:text-fg"}`}
         >
-          {t.label}
+          {f.t(`money.tab.${tab.key}`)}
         </Link>
       ))}
     </nav>

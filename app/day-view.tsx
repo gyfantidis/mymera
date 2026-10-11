@@ -4,9 +4,11 @@ import Link from "next/link";
 import { useState, useTransition } from "react";
 import { saveEntry, saveNote } from "./actions";
 import Heatmap from "./heatmap";
+import { useI18n } from "./locale-provider";
 import type { Entry } from "@/lib/db";
-import { addDays, formatDay } from "@/lib/dates";
-import { ROLE_LABELS, type Metric, type Section } from "@/lib/metrics";
+import { addDays } from "@/lib/dates";
+import type { I18n } from "@/lib/i18n";
+import type { Metric, Section } from "@/lib/metrics";
 import { dayScore, metricPoints, progress, trend, type Series, type Trend, type Values } from "@/lib/score";
 
 type Props = {
@@ -23,10 +25,8 @@ type Props = {
   history: { day: string; score: number | null }[];
 };
 
-const SOURCE_LABELS: Record<string, string> = { health: "Υγεία", mac: "Mac" };
-
-const nf = new Intl.NumberFormat("el-GR", { maximumFractionDigits: 1 });
-const fmt = (n: number) => nf.format(n);
+// Sources other than manual entry that get a badge next to the value.
+const SOURCES = ["health", "mac"] as const;
 
 export default function DayView({ day, today, sections, metrics, entries, trends, note, overview, history }: Props) {
   const [values, setValues] = useState<Values>(() =>
@@ -35,6 +35,9 @@ export default function DayView({ day, today, sections, metrics, entries, trends
   const [error, setError] = useState(false);
   const [, startTransition] = useTransition();
   const isToday = day === today;
+  const f = useI18n();
+  const { t } = f;
+  const fmt = f.num;
 
   const score = dayScore(metrics, values, day, trends);
   const hasData = Object.values(values).some((v) => v !== undefined);
@@ -54,17 +57,17 @@ export default function DayView({ day, today, sections, metrics, entries, trends
   return (
     <main className="flex flex-col gap-6">
       <header className="flex items-center justify-between">
-        <Link href={`/?d=${addDays(day, -1)}`} aria-label="Προηγούμενη μέρα" className="rounded-lg px-3 py-2 text-muted hover:bg-track">
+        <Link href={`/?d=${addDays(day, -1)}`} aria-label={t("day.prev")} className="rounded-lg px-3 py-2 text-muted hover:bg-track">
           ←
         </Link>
         <div className="text-center">
-          <h1 className="text-lg font-semibold capitalize">{formatDay(day)}</h1>
-          {isToday && <p className="text-xs text-muted">Σήμερα</p>}
+          <h1 className="text-lg font-semibold capitalize">{f.day(day)}</h1>
+          {isToday && <p className="text-xs text-muted">{t("day.today")}</p>}
         </div>
         {isToday ? (
           <span className="px-3 py-2 text-transparent">→</span>
         ) : (
-          <Link href={`/?d=${addDays(day, 1)}`} aria-label="Επόμενη μέρα" className="rounded-lg px-3 py-2 text-muted hover:bg-track">
+          <Link href={`/?d=${addDays(day, 1)}`} aria-label={t("day.next")} className="rounded-lg px-3 py-2 text-muted hover:bg-track">
             →
           </Link>
         )}
@@ -73,16 +76,16 @@ export default function DayView({ day, today, sections, metrics, entries, trends
       <section className="flex items-center gap-6 rounded-2xl border border-border bg-surface p-5">
         <Ring score={score.total} />
         <dl className="grid flex-1 grid-cols-3 gap-2 text-center text-sm">
-          <Stat label="Βάση" value={`${fmt(Math.round(score.core))}`} />
-          <Stat label="Μπόνους" value={`+${fmt(Math.round(score.bonus))}`} tone="good" />
-          <Stat label="Ποινές" value={`${Math.round(-score.penalty) > 0 ? "−" : ""}${fmt(Math.round(-score.penalty))}`} tone="bad" />
+          <Stat label={t("day.core")} value={`${fmt(Math.round(score.core))}`} />
+          <Stat label={t("day.bonus")} value={`+${fmt(Math.round(score.bonus))}`} tone="good" />
+          <Stat label={t("day.penalties")} value={`${Math.round(-score.penalty) > 0 ? "−" : ""}${fmt(Math.round(-score.penalty))}`} tone="bad" />
         </dl>
       </section>
 
       {overview}
 
       <section>
-        <h2 className="mb-2 text-xs font-medium uppercase tracking-wider text-muted">Ο τελευταίος χρόνος</h2>
+        <h2 className="mb-2 text-xs font-medium uppercase tracking-wider text-muted">{t("day.lastYear")}</h2>
         <div className="rounded-2xl border border-border bg-surface p-3">
           <Heatmap
             points={history.map((h) => (h.day === day ? { day, score: hasData ? score.total : null } : h))}
@@ -91,14 +94,15 @@ export default function DayView({ day, today, sections, metrics, entries, trends
             today={today}
             selected={day}
             months
+            f={f}
           />
-          <p className="mt-2 text-[10px] text-muted">Κάθε κουτάκι είναι μια μέρα. Πιο σκούρο σημαίνει υψηλότερο σκορ.</p>
+          <p className="mt-2 text-[10px] text-muted">{t("day.lastYearHelp")}</p>
         </div>
       </section>
 
       {error && (
         <p role="alert" className="rounded-lg border border-bad px-3 py-2 text-sm text-bad">
-          Η τελευταία αλλαγή δεν αποθηκεύτηκε. Δοκίμασε ξανά.
+          {t("day.saveError")}
         </p>
       )}
 
@@ -138,6 +142,7 @@ function lastBefore(series: Series | undefined, day: string): number | undefined
 }
 
 function Note({ day, initial, onError }: { day: string; initial: string; onError: () => void }) {
+  const { t } = useI18n();
   const [text, setText] = useState(initial);
   const [saved, setSaved] = useState(initial);
   const [, startTransition] = useTransition();
@@ -158,7 +163,7 @@ function Note({ day, initial, onError }: { day: string; initial: string; onError
   return (
     <section>
       <h2 className="mb-2 text-xs font-medium uppercase tracking-wider text-muted">
-        <label htmlFor="day-note">Σημείωση ημέρας</label>
+        <label htmlFor="day-note">{t("day.note")}</label>
       </h2>
       <textarea
         id="day-note"
@@ -167,7 +172,7 @@ function Note({ day, initial, onError }: { day: string; initial: string; onError
         onBlur={save}
         maxLength={2000}
         rows={3}
-        placeholder="Τι πήγε καλά; Τι όχι;"
+        placeholder={t("day.notePlaceholder")}
         className="w-full resize-y rounded-2xl border border-border bg-surface p-4 text-sm outline-none placeholder:text-muted focus:border-fg"
       />
     </section>
@@ -175,6 +180,7 @@ function Note({ day, initial, onError }: { day: string; initial: string; onError
 }
 
 function Ring({ score }: { score: number }) {
+  const { t } = useI18n();
   const r = 42;
   const c = 2 * Math.PI * r;
   return (
@@ -195,7 +201,7 @@ function Ring({ score }: { score: number }) {
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center">
         <span className="text-3xl font-semibold tabular-nums">{score}</span>
-        <span className="text-[10px] text-muted">από 100</span>
+        <span className="text-[10px] text-muted">{t("day.outOf")}</span>
       </div>
     </div>
   );
@@ -227,19 +233,18 @@ function Row({
   source: string | undefined;
   onChange: (v: number | undefined) => void;
 }) {
+  const f = useI18n();
+  const fmt = f.num;
   const pts = metricPoints(m, value, t?.fraction);
   const penalty = m.role === "penalty";
   const track = m.role === "track";
+  const amounts = { free: fmt(m.free), target: fmt(m.target), unit: m.unit };
   const hint = t
-    ? trendHint(m, t)
+    ? trendHint(m, t, f)
     : m.input === "number"
-      ? penalty
-        ? m.free > 0
-          ? `ελεύθερα ${fmt(m.free)}, μέγιστη ποινή στα ${fmt(m.target)} ${m.unit}`
-          : `μέγιστη ποινή στα ${fmt(m.target)} ${m.unit}`
-        : `στόχος ${fmt(m.target)} ${m.unit}`
+      ? f.t(penalty ? (m.free > 0 ? "day.hintPenaltyFree" : "day.hintPenalty") : "day.hintTarget", amounts)
       : m.input === "rating" && !track
-        ? `στόχος ${fmt(m.target)}/5`
+        ? f.t("day.hintRating", amounts)
         : "";
 
   return (
@@ -250,11 +255,16 @@ function Row({
             {m.name}
             {m.role !== "core" && (
               <span className={`text-[10px] font-normal uppercase tracking-wider ${penalty ? "text-bad" : track ? "text-muted" : "text-good"}`}>
-                {ROLE_LABELS[m.role]}
+                {f.t(`role.${m.role}`)}
               </span>
             )}
-            {source && SOURCE_LABELS[source] && (
-              <span className="rounded bg-track px-1.5 py-0.5 text-[10px] font-normal text-muted">{SOURCE_LABELS[source]}</span>
+            {SOURCES.map(
+              (s) =>
+                s === source && (
+                  <span key={s} className="rounded bg-track px-1.5 py-0.5 text-[10px] font-normal text-muted">
+                    {f.t(`source.${s}`)}
+                  </span>
+                ),
             )}
           </p>
           {hint && <p className="text-xs text-muted">{hint}</p>}
@@ -308,14 +318,14 @@ function Row({
   );
 }
 
-function trendHint(m: Metric, t: Trend): string {
-  const goal = m.target > 0 ? `στόχος ${fmt(m.target)} ${m.unit}` : "όρισε στόχο στις Ρυθμίσεις";
-  if (t.average === null) return `${goal} · καμία μέτρηση τις τελευταίες 7 μέρες`;
-  const avg = `μ.ό. 7 ημερών ${fmt(t.average)}`;
+function trendHint(m: Metric, t: Trend, f: I18n): string {
+  const goal = m.target > 0 ? f.t("day.hintTarget", { target: f.num(m.target), unit: m.unit }) : f.t("day.setGoal");
+  if (t.average === null) return `${goal} · ${f.t("day.noMeasure7")}`;
+  const avg = f.t("day.avg7", { value: f.num(t.average) });
   if (t.previous === null) return `${avg} · ${goal}`;
   const change = Math.round((t.average - t.previous) * 10) / 10;
-  const arrow = change > 0 ? `↑ ${fmt(change)}` : change < 0 ? `↓ ${fmt(-change)}` : "σταθερό";
-  return `${avg} (${arrow} από την προηγούμενη εβδομάδα) · ${goal}`;
+  const arrow = change > 0 ? `↑ ${f.num(change)}` : change < 0 ? `↓ ${f.num(-change)}` : f.t("day.steady");
+  return `${avg} (${arrow} ${f.t("day.fromLastWeek")}) · ${goal}`;
 }
 
 function NumberField({
@@ -330,6 +340,7 @@ function NumberField({
   first?: number;
   onChange: (v: number | undefined) => void;
 }) {
+  const { t } = useI18n();
   const [draft, setDraft] = useState<string | null>(null);
 
   function commit() {
@@ -353,7 +364,7 @@ function NumberField({
 
   return (
     <div className="flex items-center gap-1">
-      <button type="button" aria-label={`Λιγότερο: ${m.name}`} onClick={() => bump(-1)} className={btn}>
+      <button type="button" aria-label={t("day.less", { name: m.name })} onClick={() => bump(-1)} className={btn}>
         −
       </button>
       <input
@@ -369,7 +380,7 @@ function NumberField({
         onKeyDown={(e) => e.key === "Enter" && e.currentTarget.blur()}
         className="h-8 w-16 rounded-lg border border-border bg-transparent text-center text-sm tabular-nums outline-none focus:border-fg"
       />
-      <button type="button" aria-label={`Περισσότερο: ${m.name}`} onClick={() => bump(1)} className={btn}>
+      <button type="button" aria-label={t("day.more", { name: m.name })} onClick={() => bump(1)} className={btn}>
         +
       </button>
     </div>

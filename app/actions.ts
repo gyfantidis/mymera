@@ -1,9 +1,17 @@
 "use server";
 
 import { refresh } from "next/cache";
+import { cookies } from "next/headers";
 import { getConfig, saveConfig, setEntry, setNote } from "@/lib/db";
 import { isDay } from "@/lib/dates";
+import { LOCALE_COOKIE, isLocale } from "@/lib/i18n";
 import type { Config, InputKind, Metric, Role } from "@/lib/metrics";
+
+export async function setLocale(locale: string) {
+  if (!isLocale(locale)) throw new Error("Invalid locale");
+  (await cookies()).set(LOCALE_COOKIE, locale, { maxAge: 60 * 60 * 24 * 365, sameSite: "lax", path: "/" });
+  refresh();
+}
 
 const NOTE_MAX = 2000;
 

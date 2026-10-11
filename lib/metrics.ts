@@ -1,3 +1,5 @@
+import type { Locale } from "./i18n";
+
 export type Role = "core" | "bonus" | "penalty" | "track";
 // daily: scored on the day's own value. trend: scored on whether the 7-day average moves toward the target.
 export type Scoring = "daily" | "trend";
@@ -31,19 +33,6 @@ export type Metric = {
 // Sections and metrics are stored in display order.
 export type Config = { sections: Section[]; metrics: Metric[] };
 
-export const ROLE_LABELS: Record<Role, string> = {
-  core: "Βασικός",
-  bonus: "Μπόνους",
-  penalty: "Ποινή",
-  track: "Μόνο καταγραφή",
-};
-
-export const INPUT_LABELS: Record<InputKind, string> = {
-  number: "Αριθμός",
-  bool: "Ναι / Όχι",
-  rating: "Βαθμολογία 1–5",
-};
-
 export const CORE_TOTAL = 100;
 
 const m = (
@@ -59,8 +48,8 @@ const m = (
   step: number,
 ): Metric => ({ id, sectionId, name, role, input, scoring: "daily", unit, target, free, points, step, archived: false });
 
-// Starting template for a new database; everything in it can be changed from Settings.
-export const DEFAULT_CONFIG: Config = {
+// Starting template for a new database, in Greek; everything in it can be changed from Settings.
+const TEMPLATE: Config = {
   sections: [
     { id: "work", name: "Δουλειά & δημιουργία", archived: false },
     { id: "health", name: "Υγεία", archived: false },
@@ -91,6 +80,38 @@ export const DEFAULT_CONFIG: Config = {
     m("spending", "avoid", "Σπατάλη χρημάτων", "penalty", "number", "€", 50, 0, 8, 5),
   ],
 };
+
+// English names (and units) for the template, by id.
+const ENGLISH: Record<string, [name: string, unit?: string]> = {
+  work: ["Work & creating"],
+  health: ["Health"],
+  mood: ["Mood"],
+  life: ["Life"],
+  avoid: ["To avoid"],
+  focus: ["Focused work", "minutes"],
+  social_post: ["Social post"],
+  workout: ["Workout", "minutes"],
+  sleep: ["Sleep", "hours"],
+  nutrition: ["Nutrition"],
+  steps: ["Steps", "steps"],
+  weight: ["Weight", "kg"],
+  energy: ["Energy"],
+  reading: ["Reading", "minutes"],
+  friends: ["Met friends"],
+  walk: ["Walk"],
+  youtube: ["YouTube", "minutes"],
+  series: ["TV series", "minutes"],
+  eating_out: ["Eating out"],
+  spending: ["Impulse spending"],
+};
+
+export function defaultConfig(locale: Locale): Config {
+  if (locale === "el") return TEMPLATE;
+  return {
+    sections: TEMPLATE.sections.map((s) => ({ ...s, name: ENGLISH[s.id][0] })),
+    metrics: TEMPLATE.metrics.map((x) => ({ ...x, name: ENGLISH[x.id][0], unit: ENGLISH[x.id][1] ?? x.unit })),
+  };
+}
 
 export function defaultStep(target: number): number {
   if (target >= 1000) return 500;

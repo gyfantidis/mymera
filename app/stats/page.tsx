@@ -3,25 +3,28 @@ import { connection } from "next/server";
 import { Suspense } from "react";
 import Heatmap from "../heatmap";
 import { getConfig, getRange } from "@/lib/db";
-import { addDays, dayOf, formatDay, isDay } from "@/lib/dates";
+import { addDays, dayOf, isDay } from "@/lib/dates";
+import type { I18n } from "@/lib/i18n";
+import { getI18n } from "@/lib/i18n/server";
 import { activeSections, scoringMetrics } from "@/lib/metrics";
-import { PERIODS, PERIOD_LABELS, daysIn, isPeriod, periodLabel, periodRange, shiftPeriod, weekStart, type Period } from "@/lib/periods";
+import { PERIODS, daysIn, isPeriod, periodLabel, periodRange, shiftPeriod, weekStart, type Period } from "@/lib/periods";
 import type { Metric } from "@/lib/metrics";
 import { TREND_LOOKBACK, windowAverage, type Series } from "@/lib/score";
 import { average, buckets, dayPoints, metricStats, trendHistory, type Bucket, type DayPoint, type MetricStat } from "@/lib/stats";
+import LoadingText from "../loading-text";
 
 export default function Page({ searchParams }: PageProps<"/stats">) {
   return (
-    <Suspense fallback={<p className="py-10 text-center text-muted">Φόρτωση…</p>}>
+    <Suspense fallback={<LoadingText />}>
       <Stats searchParams={searchParams} />
     </Suspense>
   );
 }
 
-const nf = new Intl.NumberFormat("el-GR", { maximumFractionDigits: 1 });
-
 async function Stats({ searchParams }: Pick<PageProps<"/stats">, "searchParams">) {
   const { p, d } = await searchParams;
+  const f = await getI18n();
+  const { t } = f;
   await connection();
   const today = dayOf(new Date());
   const period: Period = isPeriod(p) ? p : "month";
@@ -51,21 +54,21 @@ async function Stats({ searchParams }: Pick<PageProps<"/stats">, "searchParams">
 
   return (
     <main className="flex flex-col gap-6">
-      <nav aria-label="Περίοδος" className="flex gap-1 rounded-xl bg-track p-1">
+      <nav aria-label={t("stats.periodNav")} className="flex gap-1 rounded-xl bg-track p-1">
         {PERIODS.map((x) => (
           <Link key={x} href={`/stats?p=${x}&d=${anchor}`} aria-current={x === period ? "page" : undefined} className={tab(x === period)}>
-            {PERIOD_LABELS[x]}
+            {t(`period.${x}`)}
           </Link>
         ))}
       </nav>
 
       <header className="flex items-center justify-between">
-        <Link href={`/stats?p=${period}&d=${prev.from}`} aria-label="Προηγούμενη περίοδος" className={arrow}>
+        <Link href={`/stats?p=${period}&d=${prev.from}`} aria-label={t("stats.prev")} className={arrow}>
           ←
         </Link>
-        <h1 className="text-lg font-semibold">{periodLabel(period, from, to)}</h1>
+        <h1 className="text-lg font-semibold">{periodLabel(period, from, to, f)}</h1>
         {next <= today ? (
-          <Link href={`/stats?p=${period}&d=${next}`} aria-label="Επόμενη περίοδος" className={arrow}>
+          <Link href={`/stats?p=${period}&d=${next}`} aria-label={t("stats.next")} className={arrow}>
             →
           </Link>
         ) : (
@@ -75,48 +78,47 @@ async function Stats({ searchParams }: Pick<PageProps<"/stats">, "searchParams">
 
       {logged.length === 0 ? (
         <p className="rounded-2xl border border-border bg-surface p-6 text-center text-sm text-muted">
-          Δεν υπάρχουν καταχωρήσεις σε αυτή την περίοδο.
+          {t("stats.empty")}
         </p>
       ) : (
         <>
           <dl className="grid grid-cols-2 gap-3">
-            <Card label="Μέσο σκορ" value={String(Math.round(avg!))}>
-              {delta === null ? "χωρίς προηγούμενη περίοδο" : (
+            <Card label={t("stats.avgScore")} value={String(Math.round(avg!))}>
+              {delta === null ? t("stats.noPrev") : (
                 <span className={delta > 0 ? "text-good" : delta < 0 ? "text-bad" : ""}>
-                  {delta > 0 ? "+" : delta < 0 ? "−" : ""}
-                  {Math.abs(delta)} από την προηγούμενη
+                  {t("stats.fromPrev", { delta: `${delta > 0 ? "+" : delta < 0 ? "−" : ""}${Math.abs(delta)}` })}
                 </span>
               )}
             </Card>
-            <Card label="Μέρες με καταχώρηση" value={`${logged.length} / ${elapsed.length}`}>
-              {Math.round((logged.length / elapsed.length) * 100)}% της περιόδου
+            <Card label={t("stats.daysLogged")} value={`${logged.length} / ${elapsed.length}`}>
+              {t("stats.ofPeriod", { pct: Math.round((logged.length / elapsed.length) * 100) })}
             </Card>
-            <Card label="Καλύτερη μέρα" value={String(best!.score)}>
+            <Card label={t("stats.best")} value={String(best!.score)}>
               <Link href={`/?d=${best!.day}`} className="capitalize underline-offset-2 hover:underline">
-                {formatDay(best!.day)}
+                {f.day(best!.day)}
               </Link>
             </Card>
-            <Card label="Χειρότερη μέρα" value={String(worst!.score)}>
+            <Card label={t("stats.worst")} value={String(worst!.score)}>
               <Link href={`/?d=${worst!.day}`} className="capitalize underline-offset-2 hover:underline">
-                {formatDay(worst!.day)}
+                {f.day(worst!.day)}
               </Link>
             </Card>
           </dl>
 
           <section>
             <h2 className="mb-2 text-xs font-medium uppercase tracking-wider text-muted">
-              Σκορ ανά {period === "quarter" ? "εβδομάδα" : period === "year" ? "μήνα" : "μέρα"}
+              {t(period === "quarter" ? "stats.scoreByWeek" : period === "year" ? "stats.scoreByMonth" : "stats.scoreByDay")}
             </h2>
-            <Chart items={buckets(period, points)} />
+            <Chart items={buckets(period, points, f)} noData={t("noData")} />
           </section>
 
           {period !== "week" && (
             <section>
-              <h2 className="mb-2 text-xs font-medium uppercase tracking-wider text-muted">Ημερολόγιο</h2>
+              <h2 className="mb-2 text-xs font-medium uppercase tracking-wider text-muted">{t("stats.calendar")}</h2>
               <div className="rounded-2xl border border-border bg-surface p-3">
-                <Heatmap points={points} from={from} to={to} today={today} months={period !== "month"} />
+                <Heatmap points={points} from={from} to={to} today={today} months={period !== "month"} f={f} />
                 <p className="mt-2 text-[10px] text-muted">
-                  Κάθε στήλη είναι μια εβδομάδα, από Δευτέρα έως Κυριακή. Πιο σκούρο σημαίνει υψηλότερο σκορ.
+                  {t("stats.calendarHelp")}
                 </p>
               </div>
             </section>
@@ -124,10 +126,10 @@ async function Stats({ searchParams }: Pick<PageProps<"/stats">, "searchParams">
 
           {trendMetrics.length > 0 && (
             <section>
-              <h2 className="mb-2 text-xs font-medium uppercase tracking-wider text-muted">Τάσεις</h2>
+              <h2 className="mb-2 text-xs font-medium uppercase tracking-wider text-muted">{t("stats.trends")}</h2>
               <div className="flex flex-col gap-3">
                 {trendMetrics.map((m) => (
-                  <TrendCard key={m.id} metric={m} series={series[m.id] ?? {}} days={elapsed.map((x) => x.day)} span={points.length} />
+                  <TrendCard key={m.id} metric={m} series={series[m.id] ?? {}} days={elapsed.map((x) => x.day)} span={points.length} f={f} />
                 ))}
               </div>
             </section>
@@ -141,7 +143,7 @@ async function Stats({ searchParams }: Pick<PageProps<"/stats">, "searchParams">
                 <h2 className="mb-2 text-xs font-medium uppercase tracking-wider text-muted">{section.name}</h2>
                 <ul className="divide-y divide-border rounded-2xl border border-border bg-surface">
                   {rows.map((s) => (
-                    <MetricRow key={s.metric.id} stat={s} />
+                    <MetricRow key={s.metric.id} stat={s} f={f} />
                   ))}
                 </ul>
               </section>
@@ -165,13 +167,13 @@ function Card({ label, value, children }: { label: string; value: string; childr
   );
 }
 
-function Chart({ items }: { items: Bucket[] }) {
+function Chart({ items, noData }: { items: Bucket[]; noData: string }) {
   const every = items.length > 14 ? 5 : 1;
   return (
     <div className="rounded-2xl border border-border bg-surface p-3">
       <div className="flex h-32 items-end gap-[3px]">
         {items.map((b) => (
-          <Link key={b.key} href={b.href} title={`${b.label}: ${b.score ?? "χωρίς δεδομένα"}`} className="flex h-full flex-1 items-end">
+          <Link key={b.key} href={b.href} title={`${b.label}: ${b.score ?? noData}`} className="flex h-full flex-1 items-end">
             <span
               className={`w-full rounded-sm ${b.score === null ? "bg-track" : "bg-good"}`}
               style={{ height: b.score === null ? "3px" : `${Math.max(4, b.score)}%` }}
@@ -191,7 +193,8 @@ function Chart({ items }: { items: Bucket[] }) {
 }
 
 // Logged values as dots, their 7-day average as a line, the goal as a dashed line.
-function TrendCard({ metric: m, series, days, span }: { metric: Metric; series: Series; days: string[]; span: number }) {
+function TrendCard({ metric: m, series, days, span, f }: { metric: Metric; series: Series; days: string[]; span: number; f: I18n }) {
+  const { t } = f;
   const W = 600;
   const H = 150;
   const values = days.map((d) => series[d]);
@@ -204,7 +207,7 @@ function TrendCard({ metric: m, series, days, span }: { metric: Metric; series: 
     return (
       <div className="rounded-2xl border border-border bg-surface p-4">
         <p className="font-medium">{m.name}</p>
-        <p className="text-xs text-muted">Χωρίς μετρήσεις σε αυτή την περίοδο.</p>
+        <p className="text-xs text-muted">{t("stats.noMeasurements")}</p>
       </div>
     );
   }
@@ -223,15 +226,17 @@ function TrendCard({ metric: m, series, days, span }: { metric: Metric; series: 
       <div className="flex items-baseline justify-between gap-3">
         <p className="font-medium">{m.name}</p>
         <p className="tabular-nums">
-          {nf.format(last)} {m.unit}
-          <span className="ml-1 text-[10px] text-muted">μ.ό. 7 ημερών</span>
+          {f.num(last)} {m.unit}
+          <span className="ml-1 text-[10px] text-muted">{t("stats.avg7")}</span>
         </p>
       </div>
       <p className="text-xs text-muted">
-        {change === 0 ? "Σταθερό" : `${change > 0 ? "+" : "−"}${nf.format(Math.abs(change))} ${m.unit}`} στην περίοδο
-        {m.target > 0 && ` · απομένουν ${nf.format(Math.abs(last - m.target))} ${m.unit} για τον στόχο των ${nf.format(m.target)}`}
+        {change === 0
+          ? t("stats.steadyInPeriod")
+          : t("stats.changeInPeriod", { change: `${change > 0 ? "+" : "−"}${f.num(Math.abs(change))} ${m.unit}` })}
+        {m.target > 0 && ` · ${t("stats.leftToGoal", { left: `${f.num(Math.abs(last - m.target))} ${m.unit}`, goal: f.num(m.target) })}`}
       </p>
-      <svg viewBox={`0 0 ${W} ${H}`} className="mt-3 w-full" role="img" aria-label={`Γράφημα: ${m.name}`}>
+      <svg viewBox={`0 0 ${W} ${H}`} className="mt-3 w-full" role="img" aria-label={t("stats.chart", { name: m.name })}>
         {m.target > 0 && (
           <line x1="0" x2={W} y1={y(m.target)} y2={y(m.target)} className="stroke-muted" strokeWidth="1" strokeDasharray="4 4" />
         )}
@@ -239,31 +244,33 @@ function TrendCard({ metric: m, series, days, span }: { metric: Metric; series: 
         {values.map((v, i) => (v === undefined ? null : <circle key={days[i]} cx={x(i)} cy={y(v)} r="3" className="fill-muted" />))}
       </svg>
       <p className="mt-1 text-[10px] text-muted">
-        Τελείες: μετρήσεις. Γραμμή: μέσος όρος 7 ημερών.{m.target > 0 && " Διακεκομμένη: στόχος."}
+        {t("stats.legend")}
+        {m.target > 0 && ` ${t("stats.legendGoal")}`}
       </p>
     </div>
   );
 }
 
-function MetricRow({ stat: { metric: m, logged, total, hits } }: { stat: MetricStat }) {
+function MetricRow({ stat: { metric: m, logged, total, hits }, f }: { stat: MetricStat; f: I18n }) {
+  const { t } = f;
   const penalty = m.role === "penalty";
   let main: string;
   let detail: string;
   if (logged === 0) {
     main = "–";
-    detail = "χωρίς καταχώρηση";
+    detail = t("stats.notLogged");
   } else if (m.input === "bool") {
-    main = `${hits} ${hits === 1 ? "μέρα" : "μέρες"}`;
+    main = f.plural(hits, "stats.days.one", "stats.days.other");
     detail = "";
   } else if (m.input === "rating") {
-    main = `${nf.format(total / logged)} / 5`;
-    detail = `στόχος σε ${hits} από ${logged} μέρες`;
+    main = `${f.num(total / logged)} / 5`;
+    detail = t("stats.targetOn", { hits, logged });
   } else if (m.scoring === "trend") {
-    main = `${nf.format(total / logged)} ${m.unit}`;
-    detail = `${logged} ${logged === 1 ? "μέτρηση" : "μετρήσεις"}`;
+    main = `${f.num(total / logged)} ${m.unit}`;
+    detail = f.plural(logged, "stats.measure.one", "stats.measure.other");
   } else {
-    main = `${nf.format(total / logged)} ${m.unit}`;
-    detail = `σύνολο ${nf.format(total)} · ${penalty ? `ποινή σε ${hits}` : `στόχος σε ${hits}`} από ${logged} μέρες`;
+    main = `${f.num(total / logged)} ${m.unit}`;
+    detail = t(penalty ? "stats.totalPenalty" : "stats.totalTarget", { total: f.num(total), hits, logged });
   }
   return (
     <li className="flex items-center justify-between gap-3 px-4 py-3">
@@ -273,7 +280,7 @@ function MetricRow({ stat: { metric: m, logged, total, hits } }: { stat: MetricS
       </div>
       <div className="shrink-0 text-right">
         <p className={`tabular-nums ${penalty && hits > 0 ? "text-bad" : ""}`}>{main}</p>
-        {logged > 0 && m.input !== "bool" && <p className="text-[10px] text-muted">μέσος όρος</p>}
+        {logged > 0 && m.input !== "bool" && <p className="text-[10px] text-muted">{t("stats.average")}</p>}
       </div>
     </li>
   );

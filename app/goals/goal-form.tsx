@@ -1,8 +1,9 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { GOAL_KIND_LABELS, type GoalKind } from "@/lib/goals-shared";
+import { GOAL_KINDS, type GoalKind } from "@/lib/goals-shared";
 import type { Metric } from "@/lib/metrics";
+import { useI18n } from "../locale-provider";
 import { createGoal, type GoalInput } from "./actions";
 
 const BALANCE = "__balance";
@@ -26,6 +27,7 @@ export default function GoalForm({ metrics, tomorrow }: { metrics: Metric[]; tom
   const [perWeek, setPerWeek] = useState("4");
   const [error, setError] = useState(false);
   const [pending, startTransition] = useTransition();
+  const { t } = useI18n();
 
   const num = (s: string) => (s.trim() === "" ? NaN : Number(s.replace(",", ".")));
   const metric = metrics.find((m) => m.id === subject);
@@ -62,38 +64,38 @@ export default function GoalForm({ metrics, tomorrow }: { metrics: Metric[]; tom
   return (
     <form onSubmit={submit} className="flex flex-col gap-3 rounded-2xl border border-border bg-surface p-4 text-xs text-muted">
       <label>
-        Είδος στόχου
+        {t("goals.form.kind")}
         <select className={field} value={kind} onChange={(e) => switchKind(e.target.value as GoalKind)}>
-          {(Object.keys(GOAL_KIND_LABELS) as GoalKind[]).map((k) => (
+          {GOAL_KINDS.map((k) => (
             <option key={k} value={k}>
-              {GOAL_KIND_LABELS[k]}
+              {t(`goals.kind.${k}`)}
             </option>
           ))}
         </select>
       </label>
       <label>
-        Τι αφορά
+        {t("goals.form.subject")}
         <select className={field} value={subject} onChange={(e) => setSubject(e.target.value)}>
           {options.map((m) => (
             <option key={m.id} value={m.id}>
               {m.name}
             </option>
           ))}
-          {kind === "reach" && <option value={BALANCE}>Υπόλοιπο χρημάτων</option>}
+          {kind === "reach" && <option value={BALANCE}>{t("goals.balance")}</option>}
         </select>
       </label>
 
       {kind === "change" && (
         <div className="grid grid-cols-2 gap-3">
           <label>
-            Κατεύθυνση
+            {t("goals.form.direction")}
             <select className={field} value={direction} onChange={(e) => setDirection(e.target.value as "down" | "up")}>
-              <option value="down">Μείωση</option>
-              <option value="up">Αύξηση</option>
+              <option value="down">{t("goals.form.down")}</option>
+              <option value="up">{t("goals.form.up")}</option>
             </select>
           </label>
           <label>
-            Κατά (%)
+            {t("goals.form.by")}
             <input className={field} inputMode="decimal" value={percent} onChange={(e) => setPercent(e.target.value)} />
           </label>
         </div>
@@ -101,18 +103,18 @@ export default function GoalForm({ metrics, tomorrow }: { metrics: Metric[]; tom
       {kind === "reach" && (
         <div className="grid grid-cols-2 gap-3">
           <label>
-            Τιμή-στόχος {subject === BALANCE ? "(€)" : metric?.unit ? `(${metric.unit})` : ""}
+            {t("goals.form.target")} {subject === BALANCE ? "(€)" : metric?.unit ? `(${metric.unit})` : ""}
             <input className={field} inputMode="decimal" value={target} onChange={(e) => setTarget(e.target.value)} />
           </label>
           <label>
-            Μέχρι (προαιρετικά)
+            {t("goals.form.due")}
             <input className={field} type="date" min={tomorrow} value={due} onChange={(e) => setDue(e.target.value)} />
           </label>
         </div>
       )}
       {kind === "frequency" && (
         <label>
-          Φορές την εβδομάδα
+          {t("goals.form.perWeek")}
           <select className={field} value={perWeek} onChange={(e) => setPerWeek(e.target.value)}>
             {[1, 2, 3, 4, 5, 6, 7].map((n) => (
               <option key={n} value={n}>
@@ -124,18 +126,18 @@ export default function GoalForm({ metrics, tomorrow }: { metrics: Metric[]; tom
       )}
 
       <p>
-        {kind === "change" && "Συγκρίνει τον μέσο όρο των τελευταίων 7 ημερών με τον μέσο όρο των 30 ημερών πριν ξεκινήσει ο στόχος."}
-        {kind === "reach" && "Μετράει από εκεί που είσαι σήμερα. Με ημερομηνία, δείχνει και αν είσαι εντός προγράμματος."}
-        {kind === "frequency" && "Μετράει τις μέρες της εβδομάδας, Δευτέρα έως Κυριακή, που έπιασες τον στόχο του τομέα."}
+        {kind === "change" && t("goals.form.helpChange")}
+        {kind === "reach" && t("goals.form.helpReach")}
+        {kind === "frequency" && t("goals.form.helpFrequency")}
       </p>
 
       <div className="flex items-center gap-3">
         <button type="submit" disabled={!valid || pending} className="rounded-lg bg-fg px-4 py-2 text-sm font-medium text-bg disabled:opacity-40">
-          {pending ? "Προσθήκη…" : "Προσθήκη στόχου"}
+          {pending ? t("adding") : t("goals.form.submit")}
         </button>
         {error && (
           <span role="alert" className="text-sm text-bad">
-            Δεν αποθηκεύτηκε. Έλεγξε τα πεδία.
+            {t("goals.form.error")}
           </span>
         )}
       </div>

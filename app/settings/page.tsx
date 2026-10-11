@@ -1,19 +1,15 @@
 import { connection } from "next/server";
 import { Suspense } from "react";
 import { getConfig } from "@/lib/db";
+import { getI18n } from "@/lib/i18n/server";
+import LoadingText from "../loading-text";
+import LanguageSelect from "./language-select";
 import SettingsForm from "./settings-form";
 
 export default function Page() {
   return (
     <main className="flex flex-col gap-4">
-      <div>
-        <h1 className="text-lg font-semibold">Sections και τομείς</h1>
-        <p className="text-sm text-muted">
-          Οι βασικοί τομείς μοιράζονται πάντα 100 πόντους ανάλογα με το βάρος τους. Τα μπόνους προσθέτουν και οι ποινές αφαιρούν
-          πόντους, και το τελικό σκορ μένει μεταξύ 0 και 100.
-        </p>
-      </div>
-      <Suspense fallback={<p className="py-10 text-center text-muted">Φόρτωση…</p>}>
+      <Suspense fallback={<LoadingText />}>
         <Loader />
       </Suspense>
     </main>
@@ -22,5 +18,15 @@ export default function Page() {
 
 async function Loader() {
   await connection();
-  return <SettingsForm config={await getConfig()} />;
+  const { t } = await getI18n();
+  return (
+    <>
+      <LanguageSelect />
+      <div>
+        <h1 className="text-lg font-semibold">{t("settings.title")}</h1>
+        <p className="text-sm text-muted">{t("settings.intro")}</p>
+      </div>
+      <SettingsForm config={await getConfig()} />
+    </>
+  );
 }

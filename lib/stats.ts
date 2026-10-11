@@ -1,6 +1,7 @@
 import { toValues, type Range } from "./db";
 import type { Metric } from "./metrics";
-import { monthShort, weekStart, weekdayShort, type Period } from "./periods";
+import type { I18n } from "./i18n";
+import { weekStart, type Period } from "./periods";
 import { dayScore, type Series } from "./score";
 
 export type DayPoint = { day: string; score: number | null };
@@ -30,11 +31,11 @@ export function average(points: DayPoint[]): number | null {
 export type Bucket = { key: string; label: string; score: number | null; href: string };
 
 // Bars for the chart: days for a week or month, weeks for a quarter, months for a year.
-export function buckets(period: Period, points: DayPoint[]): Bucket[] {
+export function buckets(period: Period, points: DayPoint[], f: I18n): Bucket[] {
   if (period === "week" || period === "month") {
     return points.map((p) => ({
       key: p.day,
-      label: period === "week" ? weekdayShort(p.day) : String(Number(p.day.slice(8))),
+      label: period === "week" ? f.weekday(p.day) : String(Number(p.day.slice(8))),
       score: p.score,
       href: `/?d=${p.day}`,
     }));
@@ -48,7 +49,7 @@ export function buckets(period: Period, points: DayPoint[]): Bucket[] {
     const avg = average(group);
     return {
       key,
-      label: period === "quarter" ? `${Number(key.slice(8))}/${Number(key.slice(5, 7))}` : monthShort(key),
+      label: period === "quarter" ? `${Number(key.slice(8))}/${Number(key.slice(5, 7))}` : f.month(key),
       score: avg === null ? null : Math.round(avg),
       href: `/stats?p=${period === "quarter" ? "week" : "month"}&d=${group[0].day}`,
     };

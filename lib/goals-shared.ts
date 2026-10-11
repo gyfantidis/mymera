@@ -1,17 +1,13 @@
 // Goal types and progress maths; safe to import from client components.
 import { addDays } from "./dates";
 import type { Metric } from "./metrics";
-import { formatMoney } from "./money-shared";
+import type { I18n } from "./i18n";
 import { weekStart } from "./periods";
 import { windowAverage, type Series } from "./score";
 
 export type GoalKind = "change" | "reach" | "frequency";
 
-export const GOAL_KIND_LABELS: Record<GoalKind, string> = {
-  change: "Αλλαγή σε σχέση με τώρα",
-  reach: "Φτάσε μια τιμή",
-  frequency: "Συχνότητα την εβδομάδα",
-};
+export const GOAL_KINDS: GoalKind[] = ["change", "reach", "frequency"];
 
 export type Goal = {
   id: string;
@@ -135,23 +131,14 @@ export function goalProgress(goal: Goal, metric: Metric | undefined, series: Ser
   return { fraction, status, current, target, start };
 }
 
-const nf = new Intl.NumberFormat("el-GR", { maximumFractionDigits: 1 });
-
 // Money for the balance, the metric's unit otherwise.
-export function goalAmount(n: number, metric: Metric | undefined): string {
-  return metric ? `${nf.format(n)}${metric.unit ? ` ${metric.unit}` : ""}` : formatMoney(n);
+export function goalAmount(n: number, metric: Metric | undefined, f: I18n): string {
+  return metric ? `${f.num(n)}${metric.unit ? ` ${metric.unit}` : ""}` : f.money(n);
 }
 
-export function goalTitle(goal: Goal, metric: Metric | undefined): string {
-  const name = metric?.name ?? "Υπόλοιπο χρημάτων";
-  if (goal.kind === "change") return `${name}: ${goal.percent! < 0 ? "μείωση" : "αύξηση"} κατά ${nf.format(Math.abs(goal.percent!))}%`;
-  if (goal.kind === "frequency") return `${name}: ${goal.perWeek} ${goal.perWeek === 1 ? "φορά" : "φορές"} την εβδομάδα`;
-  return `${name}: ${goalAmount(goal.targetValue!, metric)}`;
+export function goalTitle(goal: Goal, metric: Metric | undefined, f: I18n): string {
+  const name = metric?.name ?? f.t("goals.balance");
+  if (goal.kind === "change") return f.t(goal.percent! < 0 ? "goals.title.decrease" : "goals.title.increase", { name, pct: f.num(Math.abs(goal.percent!)) });
+  if (goal.kind === "frequency") return f.plural(goal.perWeek!, "goals.title.freq.one", "goals.title.freq.other", { name });
+  return `${name}: ${goalAmount(goal.targetValue!, metric, f)}`;
 }
-
-export const GOAL_STATUS_LABELS: Record<Progress["status"], string> = {
-  done: "Το πέτυχες",
-  on: "Σε καλό δρόμο",
-  behind: "Θέλει προσπάθεια",
-  collecting: "Μαζεύω δεδομένα",
-};

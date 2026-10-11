@@ -1,5 +1,6 @@
 import postgres from "postgres";
-import { DEFAULT_CONFIG, type Config, type InputKind, type Role, type Scoring } from "./metrics";
+import { serverDefaultLocale } from "./i18n/default";
+import { defaultConfig, type Config, type InputKind, type Role, type Scoring } from "./metrics";
 import { MIGRATIONS } from "./migrations";
 import type { Values } from "./score";
 
@@ -44,9 +45,32 @@ async function migrate(sql: Sql) {
       await tx`INSERT INTO schema_migrations (version) VALUES (${version})`;
     }
     const [{ n }] = await tx`SELECT count(*)::int AS n FROM sections`;
-    if (n === 0) await writeConfig(tx, DEFAULT_CONFIG);
+    if (n === 0) {
+      // A fresh install starts from the template in the instance's default language.
+      const locale = serverDefaultLocale();
+      await writeConfig(tx, defaultConfig(locale));
+      if (locale === "en") {
+        for (const [id, name] of Object.entries(ENGLISH_CATEGORIES)) await tx`UPDATE money_categories SET name = ${name} WHERE id = ${id}`;
+      }
+    }
   });
 }
+
+// English names for the money categories that the migration seeds in Greek.
+const ENGLISH_CATEGORIES: Record<string, string> = {
+  salary: "Salary / fees",
+  other_income: "Other income",
+  groceries: "Groceries",
+  home: "Home / rent",
+  bills: "Bills",
+  transport: "Transport",
+  eating_out: "Eating out",
+  health: "Health",
+  fun: "Entertainment",
+  subscriptions: "Subscriptions",
+  shopping: "Shopping",
+  other_expense: "Other expenses",
+};
 
 // The metric's input type is fixed once created, so existing entries keep their meaning.
 async function writeConfig(tx: postgres.TransactionSql, config: Config) {

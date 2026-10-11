@@ -1,6 +1,7 @@
 import Link from "next/link";
-import { addDays, formatDay } from "@/lib/dates";
-import { daysIn, monthShort, weekStart } from "@/lib/periods";
+import { addDays } from "@/lib/dates";
+import type { I18n } from "@/lib/i18n";
+import { daysIn, weekStart } from "@/lib/periods";
 
 type Props = {
   points: { day: string; score: number | null }[];
@@ -11,10 +12,11 @@ type Props = {
   selected?: string;
   // Month names above the columns, for ranges that span several months.
   months?: boolean;
+  f: I18n;
 };
 
 // GitHub-style calendar: one column per week (Monday on top), darker cells for higher scores.
-export default function Heatmap({ points, from, to, today, selected, months = false }: Props) {
+export default function Heatmap({ points, from, to, today, selected, months = false, f }: Props) {
   const byDay = new Map(points.map((p) => [p.day, p.score]));
   const cells = daysIn(weekStart(from), addDays(weekStart(to), 6));
   const columns = cells.length / 7;
@@ -30,7 +32,7 @@ export default function Heatmap({ points, from, to, today, selected, months = fa
               const first = cells.slice(c * 7, c * 7 + 7).find((d) => d.endsWith("-01") && d >= from && d <= to);
               return (
                 <span key={c} className="overflow-visible whitespace-nowrap">
-                  {first ? monthShort(first) : ""}
+                  {first ? f.month(first) : ""}
                 </span>
               );
             })}
@@ -45,7 +47,7 @@ export default function Heatmap({ points, from, to, today, selected, months = fa
               <Link
                 key={day}
                 href={`/?d=${day}`}
-                title={`${formatDay(day)}: ${score ?? "χωρίς δεδομένα"}`}
+                title={`${f.day(day)}: ${score ?? f.t("noData")}`}
                 className={`aspect-square rounded-[2px] bg-track ${day === selected ? "outline outline-2 outline-fg" : ""}`}
                 style={score === null ? undefined : { background: `color-mix(in srgb, var(--good) ${15 + score * 0.85}%, var(--track))` }}
               />

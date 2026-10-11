@@ -4,6 +4,7 @@ import { getConfig, getNote, getRange } from "@/lib/db";
 import { addDays, dayOf, isDay } from "@/lib/dates";
 import { activeSections, scoringMetrics } from "@/lib/metrics";
 import { getGoals } from "@/lib/goals";
+import { getI18n } from "@/lib/i18n/server";
 import { GOAL_LOOKBACK, goalProgress, goalTitle } from "@/lib/goals-shared";
 import { balanceAt, monthlyTotals } from "@/lib/money";
 import { daysIn, periodLabel, periodRange } from "@/lib/periods";
@@ -11,13 +12,14 @@ import { TREND_LOOKBACK, trend } from "@/lib/score";
 import { dayPoints, seriesOf, trendHistory } from "@/lib/stats";
 import DayView from "./day-view";
 import Overview from "./overview";
+import LoadingText from "./loading-text";
 
 // The home calendar covers the last year, like a GitHub contribution graph.
 const HISTORY_DAYS = 53 * 7;
 
 export default function Page({ searchParams }: PageProps<"/">) {
   return (
-    <Suspense fallback={<p className="py-10 text-center text-muted">Φόρτωση…</p>}>
+    <Suspense fallback={<LoadingText />}>
       <Day searchParams={searchParams} />
     </Suspense>
   );
@@ -25,6 +27,7 @@ export default function Page({ searchParams }: PageProps<"/">) {
 
 async function Day({ searchParams }: Pick<PageProps<"/">, "searchParams">) {
   const { d } = await searchParams;
+  const f = await getI18n();
   await connection();
   const today = dayOf(new Date());
   const day = isDay(d) && d <= today ? d : today;
@@ -51,7 +54,7 @@ async function Day({ searchParams }: Pick<PageProps<"/">, "searchParams">) {
         .filter((m) => m.scoring === "trend")
         .map((m) => ({ id: m.id, name: m.name, unit: m.unit, target: m.target, ...trend(m, trends[m.id] ?? {}, today) }))}
       money={{
-        month: periodLabel("month", month.from, month.to),
+        month: periodLabel("month", month.from, month.to, f),
         result: totals.reduce((s, t) => s + t.income - t.expense, 0),
         balance,
       }}
@@ -59,8 +62,9 @@ async function Day({ searchParams }: Pick<PageProps<"/">, "searchParams">) {
         const metric = metrics.find((m) => m.id === goal.metricId);
         if (goal.metricId !== null && !metric) return [];
         const progress = goalProgress(goal, metric, metric ? seriesOf(range, metric.id) : {}, balance, today);
-        return [{ id: goal.id, title: goalTitle(goal, metric), progress }];
+        return [{ id: goal.id, title: goalTitle(goal, metric, f), progress }];
       })}
+      f={f}
     />
   );
 

@@ -55,4 +55,36 @@ export const MIGRATIONS: string[] = [
      ) AS v (id, section, name, role, input, scoring, unit, target, points, step, n)
      WHERE EXISTS (SELECT 1 FROM sections)
      ON CONFLICT DO NOTHING;`,
+
+  // Money: income and expense entries by category, plus an opening balance for the running total.
+  `CREATE TABLE money_categories (
+     id TEXT PRIMARY KEY,
+     name TEXT NOT NULL,
+     kind TEXT NOT NULL CHECK (kind IN ('income', 'expense')),
+     position INTEGER NOT NULL,
+     archived BOOLEAN NOT NULL DEFAULT false
+   );
+   CREATE TABLE transactions (
+     id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+     day DATE NOT NULL,
+     category_id TEXT NOT NULL REFERENCES money_categories (id),
+     amount NUMERIC(12, 2) NOT NULL CHECK (amount > 0),
+     note TEXT NOT NULL DEFAULT '',
+     created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+   );
+   CREATE INDEX transactions_day ON transactions (day);
+   CREATE TABLE settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
+   INSERT INTO money_categories (id, name, kind, position) VALUES
+     ('salary', 'Μισθός / αμοιβές', 'income', 0),
+     ('other_income', 'Άλλα έσοδα', 'income', 1),
+     ('groceries', 'Σούπερ μάρκετ', 'expense', 2),
+     ('home', 'Σπίτι / ενοίκιο', 'expense', 3),
+     ('bills', 'Λογαριασμοί', 'expense', 4),
+     ('transport', 'Μετακινήσεις', 'expense', 5),
+     ('eating_out', 'Φαγητό έξω', 'expense', 6),
+     ('health', 'Υγεία', 'expense', 7),
+     ('fun', 'Διασκέδαση', 'expense', 8),
+     ('subscriptions', 'Συνδρομές', 'expense', 9),
+     ('shopping', 'Ψώνια', 'expense', 10),
+     ('other_expense', 'Άλλα έξοδα', 'expense', 11);`,
 ];

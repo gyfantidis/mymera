@@ -19,7 +19,11 @@ The total is clamped to 0–100. Sections, metrics, targets and points are edita
 
 ## Statistics
 
-The Stats page shows any week, month, quarter or year: average score against the previous period, a score chart, a calendar heatmap, best and worst day, and per-metric averages, totals and days on target. Days without entries are left out of averages.
+The Stats page shows any week, month, quarter or year: average score against the previous period, a score chart, a calendar heatmap, trend charts, best and worst day, and per-metric averages, totals and days on target. Days without entries are left out of averages.
+
+## Money
+
+Income and expenses are entered by hand with a date, a category and an amount. The month page shows income, expenses by category, the month's result and a running balance carried over from earlier months (starting from an opening balance you set). The year page puts the months side by side. Money does not affect the daily score.
 
 ## Running locally
 

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useState, useTransition } from "react";
 import { saveEntry, saveNote } from "./actions";
+import Heatmap from "./heatmap";
 import type { Entry } from "@/lib/db";
 import { addDays, formatDay } from "@/lib/dates";
 import { ROLE_LABELS, type Metric, type Section } from "@/lib/metrics";
@@ -10,7 +11,7 @@ import { dayScore, metricPoints, progress, trend, type Series, type Trend, type 
 
 type Props = {
   day: string;
-  isToday: boolean;
+  today: string;
   sections: Section[];
   metrics: Metric[];
   entries: Record<string, Entry>;
@@ -25,12 +26,13 @@ const SOURCE_LABELS: Record<string, string> = { health: "Υγεία", mac: "Mac"
 const nf = new Intl.NumberFormat("el-GR", { maximumFractionDigits: 1 });
 const fmt = (n: number) => nf.format(n);
 
-export default function DayView({ day, isToday, sections, metrics, entries, trends, note, history }: Props) {
+export default function DayView({ day, today, sections, metrics, entries, trends, note, history }: Props) {
   const [values, setValues] = useState<Values>(() =>
     Object.fromEntries(Object.entries(entries).map(([k, e]) => [k, e.value])),
   );
   const [error, setError] = useState(false);
   const [, startTransition] = useTransition();
+  const isToday = day === today;
 
   const score = dayScore(metrics, values, day, trends);
   const hasData = Object.values(values).some((v) => v !== undefined);
@@ -75,6 +77,21 @@ export default function DayView({ day, isToday, sections, metrics, entries, tren
         </dl>
       </section>
 
+      <section>
+        <h2 className="mb-2 text-xs font-medium uppercase tracking-wider text-muted">Ο τελευταίος χρόνος</h2>
+        <div className="rounded-2xl border border-border bg-surface p-3">
+          <Heatmap
+            points={history.map((h) => (h.day === day ? { day, score: hasData ? score.total : null } : h))}
+            from={history[0].day}
+            to={today}
+            today={today}
+            selected={day}
+            months
+          />
+          <p className="mt-2 text-[10px] text-muted">Κάθε κουτάκι είναι μια μέρα. Πιο σκούρο σημαίνει υψηλότερο σκορ.</p>
+        </div>
+      </section>
+
       {error && (
         <p role="alert" className="rounded-lg border border-bad px-3 py-2 text-sm text-bad">
           Η τελευταία αλλαγή δεν αποθηκεύτηκε. Δοκίμασε ξανά.
@@ -106,27 +123,6 @@ export default function DayView({ day, isToday, sections, metrics, entries, tren
 
       <Note day={day} initial={note} onError={() => setError(true)} />
 
-      <section>
-        <h2 className="mb-2 text-xs font-medium uppercase tracking-wider text-muted">Τελευταίες 14 μέρες</h2>
-        <div className="flex h-24 items-end gap-1 rounded-2xl border border-border bg-surface p-3">
-          {history.map((h) => {
-            const s = h.day === day ? (hasData ? score.total : null) : h.score;
-            return (
-              <Link
-                key={h.day}
-                href={`/?d=${h.day}`}
-                title={`${formatDay(h.day)}: ${s ?? "χωρίς δεδομένα"}`}
-                className="flex h-full flex-1 items-end"
-              >
-                <span
-                  className={`w-full rounded-sm ${s === null ? "bg-track" : h.day === day ? "bg-fg" : "bg-good/60"}`}
-                  style={{ height: s === null ? "4px" : `${Math.max(6, s)}%` }}
-                />
-              </Link>
-            );
-          })}
-        </div>
-      </section>
     </main>
   );
 }

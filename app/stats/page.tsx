@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { connection } from "next/server";
 import { Suspense } from "react";
+import Heatmap from "../heatmap";
 import { getConfig, getRange } from "@/lib/db";
 import { addDays, dayOf, formatDay, isDay } from "@/lib/dates";
 import { activeSections, scoringMetrics } from "@/lib/metrics";
@@ -112,7 +113,12 @@ async function Stats({ searchParams }: Pick<PageProps<"/stats">, "searchParams">
           {period !== "week" && (
             <section>
               <h2 className="mb-2 text-xs font-medium uppercase tracking-wider text-muted">Ημερολόγιο</h2>
-              <Heatmap points={points} from={from} to={to} today={today} />
+              <div className="rounded-2xl border border-border bg-surface p-3">
+                <Heatmap points={points} from={from} to={to} today={today} months={period !== "month"} />
+                <p className="mt-2 text-[10px] text-muted">
+                  Κάθε στήλη είναι μια εβδομάδα, από Δευτέρα έως Κυριακή. Πιο σκούρο σημαίνει υψηλότερο σκορ.
+                </p>
+              </div>
             </section>
           )}
 
@@ -180,37 +186,6 @@ function Chart({ items }: { items: Bucket[] }) {
           </span>
         ))}
       </div>
-    </div>
-  );
-}
-
-// One column per week (Monday on top), darker cells for higher scores.
-function Heatmap({ points, from, to, today }: { points: DayPoint[]; from: string; to: string; today: string }) {
-  const byDay = new Map(points.map((p) => [p.day, p.score]));
-  const cells = daysIn(weekStart(from), addDays(weekStart(to), 6));
-  const columns = cells.length / 7;
-  return (
-    <div className="rounded-2xl border border-border bg-surface p-3">
-      <div
-        className="grid grid-flow-col gap-[3px]"
-        style={{ gridTemplateRows: "repeat(7, 1fr)", gridAutoColumns: "1fr", maxWidth: `${columns * 30}px` }}
-      >
-        {cells.map((day) => {
-          if (day < from || day > to) return <span key={day} className="aspect-square" />;
-          const score = byDay.get(day) ?? null;
-          if (day > today) return <span key={day} className="aspect-square rounded-[3px] border border-border" />;
-          return (
-            <Link
-              key={day}
-              href={`/?d=${day}`}
-              title={`${formatDay(day)}: ${score ?? "χωρίς δεδομένα"}`}
-              className="aspect-square rounded-[3px] bg-track"
-              style={score === null ? undefined : { background: `color-mix(in srgb, var(--good) ${15 + score * 0.85}%, var(--track))` }}
-            />
-          );
-        })}
-      </div>
-      <p className="mt-2 text-[10px] text-muted">Κάθε στήλη είναι μια εβδομάδα, από Δευτέρα έως Κυριακή. Πιο σκούρο σημαίνει υψηλότερο σκορ.</p>
     </div>
   );
 }

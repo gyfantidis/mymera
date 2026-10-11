@@ -9,7 +9,7 @@ type Sql = postgres.Sql;
 // Migrations are re-checked whenever their number changes, so a hot reload that adds one applies it.
 const globals = globalThis as { mymeraSql?: Sql; mymeraMigrated?: { count: number; done: Promise<void> } };
 
-async function db(): Promise<Sql> {
+export async function db(): Promise<Sql> {
   if (!globals.mymeraSql) {
     const url = process.env.DATABASE_URL;
     if (!url) throw new Error("DATABASE_URL is not set. Copy .env.example to .env.local and run `npm run db:up`.");

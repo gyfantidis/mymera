@@ -25,6 +25,9 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
               <Link href="/stats" className="hover:text-fg">
                 Στατιστικά
               </Link>
+              <Link href="/money" className="hover:text-fg">
+                Χρήματα
+              </Link>
               <Link href="/settings" className="hover:text-fg">
                 Ρυθμίσεις
               </Link>

@@ -8,7 +8,8 @@ import { TREND_LOOKBACK } from "@/lib/score";
 import { dayPoints, trendHistory } from "@/lib/stats";
 import DayView from "./day-view";
 
-const HISTORY_DAYS = 14;
+// The home calendar covers the last year, like a GitHub contribution graph.
+const HISTORY_DAYS = 53 * 7;
 
 export default function Page({ searchParams }: PageProps<"/">) {
   return (
@@ -24,21 +25,22 @@ async function Day({ searchParams }: Pick<PageProps<"/">, "searchParams">) {
   const today = dayOf(new Date());
   const day = isDay(d) && d <= today ? d : today;
 
-  const from = addDays(day, -(HISTORY_DAYS - 1));
-  const [range, config, note] = await Promise.all([getRange(addDays(from, -TREND_LOOKBACK), day), getConfig(), getNote(day)]);
+  const from = addDays(today, -(HISTORY_DAYS - 1));
+  const start = day < from ? day : from;
+  const [range, config, note] = await Promise.all([getRange(addDays(start, -TREND_LOOKBACK), today), getConfig(), getNote(day)]);
   const metrics = scoringMetrics(config);
 
   return (
     <DayView
       key={day}
       day={day}
-      isToday={day === today}
       sections={activeSections(config)}
       metrics={metrics}
       entries={range[day] ?? {}}
       trends={trendHistory(metrics, range)}
       note={note}
-      history={dayPoints(metrics, range, daysIn(from, day))}
+      today={today}
+      history={dayPoints(metrics, range, daysIn(from, today))}
     />
   );
 }

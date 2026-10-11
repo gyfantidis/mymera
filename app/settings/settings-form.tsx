@@ -361,12 +361,12 @@ export default function SettingsForm({ config }: { config: Config }) {
       )}
 
       <div className="fixed inset-x-0 bottom-0 border-t border-border bg-bg/95 backdrop-blur">
-        <div className="mx-auto flex w-full max-w-xl items-center gap-3 px-4 py-3">
+        <div className="mx-auto flex w-full max-w-2xl items-center gap-3 px-4 py-3">
           <button
             type="button"
             onClick={save}
             disabled={pending || invalid || status === "idle" || status === "saved"}
-            className="rounded-lg bg-fg px-4 py-2 text-sm font-medium text-bg disabled:opacity-40"
+            className="rounded-lg bg-accent px-4 py-2 text-sm font-medium text-on-accent disabled:opacity-40"
           >
             {t(pending ? "saving" : "save")}
           </button>

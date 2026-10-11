@@ -82,7 +82,7 @@ export default function AddForm({ categories, defaultDay, min, max }: { categori
         </label>
       </div>
       <div className="flex items-center gap-3">
-        <button type="submit" disabled={!valid || pending} className="rounded-lg bg-fg px-4 py-2 text-sm font-medium text-bg disabled:opacity-40">
+        <button type="submit" disabled={!valid || pending} className="rounded-lg bg-accent px-4 py-2 text-sm font-medium text-on-accent disabled:opacity-40">
           {t(pending ? "adding" : "add")}
         </button>
         {error && (

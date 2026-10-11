@@ -23,8 +23,9 @@ export default function Heatmap({ points, from, to, today, selected, months = fa
   const grid = { gridAutoColumns: "1fr", maxWidth: `${columns * 30}px` };
   return (
     // Padding leaves room for the selected day's outline inside the scroll container.
-    <div className="overflow-x-auto p-[3px]">
-      <div style={{ minWidth: `${columns * 9}px` }}>
+    // The container is right-to-left so that, when it has to scroll, it opens on the most recent weeks.
+    <div className="overflow-x-auto p-[3px]" dir="rtl">
+      <div dir="ltr" style={{ minWidth: `${columns * 9}px` }}>
         {months && (
           <div className="mb-1 grid grid-flow-col text-[10px] text-muted" style={grid}>
             {Array.from({ length: columns }, (_, c) => {

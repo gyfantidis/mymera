@@ -73,12 +73,16 @@ export default function DayView({ day, today, sections, metrics, entries, trends
         )}
       </header>
 
-      <section className="flex items-center gap-6 rounded-2xl border border-border bg-surface p-5">
+      <section
+        className="flex items-center gap-4 rounded-2xl border border-border bg-surface p-5 sm:gap-6"
+        // A faint wash of the score's colour, so a good day looks different at a glance.
+        style={{ backgroundImage: `linear-gradient(135deg, transparent 50%, color-mix(in srgb, ${TONES[tone(score.total)].color} 14%, transparent))` }}
+      >
         <Ring score={score.total} />
-        <dl className="grid flex-1 grid-cols-3 gap-2 text-center text-sm">
+        <dl className="grid flex-1 grid-cols-3 divide-x divide-border text-center text-sm">
           <Stat label={t("day.core")} value={`${fmt(Math.round(score.core))}`} />
           <Stat label={t("day.bonus")} value={`+${fmt(Math.round(score.bonus))}`} tone="good" />
-          <Stat label={t("day.penalties")} value={`${Math.round(-score.penalty) > 0 ? "−" : ""}${fmt(Math.round(-score.penalty))}`} tone="bad" />
+          <Stat label={t("day.penalties")} value={`${Math.round(-score.penalty) > 0 ? "−" : ""}${fmt(Math.abs(Math.round(score.penalty)))}`} tone="bad" />
         </dl>
       </section>
 
@@ -179,12 +183,20 @@ function Note({ day, initial, onError }: { day: string; initial: string; onError
   );
 }
 
+// Score bands: strong from 70, middling from 40, weak below.
+const tone = (score: number) => (score >= 70 ? "good" : score >= 40 ? "warn" : "bad");
+const TONES = {
+  good: { color: "var(--good)", stroke: "stroke-good" },
+  warn: { color: "var(--warn)", stroke: "stroke-warn" },
+  bad: { color: "var(--bad)", stroke: "stroke-bad" },
+};
+
 function Ring({ score }: { score: number }) {
   const { t } = useI18n();
   const r = 42;
   const c = 2 * Math.PI * r;
   return (
-    <div className="relative h-28 w-28 shrink-0">
+    <div className="relative h-28 w-28 shrink-0 sm:h-32 sm:w-32">
       <svg viewBox="0 0 100 100" className="h-full w-full -rotate-90">
         <circle cx="50" cy="50" r={r} fill="none" strokeWidth="9" className="stroke-track" />
         <circle
@@ -196,11 +208,11 @@ function Ring({ score }: { score: number }) {
           strokeLinecap="round"
           strokeDasharray={c}
           strokeDashoffset={c * (1 - score / 100)}
-          className="stroke-good transition-[stroke-dashoffset] duration-300"
+          className={`${TONES[tone(score)].stroke} transition-[stroke-dashoffset,stroke] duration-500`}
         />
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center">
-        <span className="text-3xl font-semibold tabular-nums">{score}</span>
+        <span className="text-4xl font-semibold tracking-tight tabular-nums">{score}</span>
         <span className="text-[10px] text-muted">{t("day.outOf")}</span>
       </div>
     </div>
@@ -209,8 +221,8 @@ function Ring({ score }: { score: number }) {
 
 function Stat({ label, value, tone }: { label: string; value: string; tone?: "good" | "bad" }) {
   return (
-    <div>
-      <dt className="text-xs text-muted">{label}</dt>
+    <div className="px-1">
+      <dt className="truncate text-xs text-muted">{label}</dt>
       <dd className={`text-lg font-medium tabular-nums ${tone === "good" ? "text-good" : tone === "bad" ? "text-bad" : ""}`}>
         {value}
       </dd>

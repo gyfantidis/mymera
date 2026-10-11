@@ -3,24 +3,32 @@
 :root {
   --bg: #f6f5f1;
   --surface: #ffffff;
-  --border: #e4e2da;
-  --fg: #1c1b18;
-  --muted: #6f6c63;
-  --good: #2f7d4f;
-  --bad: #b4472e;
-  --track: #eceae3;
+  --border: #e7e4dc;
+  --fg: #171a18;
+  --muted: #6c706a;
+  --good: #1f9d63;
+  --warn: #d9951a;
+  --bad: #d4513f;
+  --accent: #0f766e;
+  --on-accent: #ffffff;
+  --track: #edebe4;
+  --shadow: 0 1px 2px rgb(23 26 24 / 0.04), 0 8px 24px -12px rgb(23 26 24 / 0.12);
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --bg: #121210;
-    --surface: #1b1b18;
-    --border: #2e2d28;
-    --fg: #edebe4;
-    --muted: #9a968b;
-    --good: #5cc084;
-    --bad: #e8795c;
-    --track: #2a2925;
+    --bg: #0e100f;
+    --surface: #171a18;
+    --border: #272b28;
+    --fg: #eceeec;
+    --muted: #9aa09b;
+    --good: #3ecf8e;
+    --warn: #f0b840;
+    --bad: #f07167;
+    --accent: #2dd4bf;
+    --on-accent: #06221f;
+    --track: #232724;
+    --shadow: 0 1px 2px rgb(0 0 0 / 0.3);
   }
 }
 
@@ -31,14 +39,24 @@
   --color-fg: var(--fg);
   --color-muted: var(--muted);
   --color-good: var(--good);
+  --color-warn: var(--warn);
   --color-bad: var(--bad);
+  --color-accent: var(--accent);
+  --color-on-accent: var(--on-accent);
   --color-track: var(--track);
+  --font-sans: var(--font-inter), system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
 }
 
 body {
   background: var(--bg);
   color: var(--fg);
-  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-family: var(--font-sans);
+  font-feature-settings: "cv11", "ss01";
+}
+
+/* Every card in the app is a large-radius surface; give them all the same soft lift. */
+.rounded-2xl.bg-surface {
+  box-shadow: var(--shadow);
 }
 
 input[type="number"] {

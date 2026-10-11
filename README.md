@@ -20,13 +20,16 @@ The Stats page shows any week, month, quarter or year: average score against the
 
 ## Running locally
 
+You need Node.js and Docker.
+
 ```bash
 npm install
 cp .env.example .env.local
+npm run db:up
 npm run dev
 ```
 
-Open http://localhost:3000. Data is stored in a local SQLite file (`mymera.db`). Set `DATABASE_URL` and `DATABASE_AUTH_TOKEN` to use a hosted libSQL/Turso database instead.
+Open http://localhost:3000. `npm run db:up` starts a local Postgres in Docker (port 5433); the schema is created and updated automatically on startup from the numbered migrations in `lib/migrations.ts`.
 
 ## Apple Health data
 
@@ -34,7 +37,7 @@ Open http://localhost:3000. Data is stored in a local SQLite file (`mymera.db`).
 
 ## Stack
 
-Next.js (App Router), TypeScript, Tailwind CSS, libSQL.
+Next.js (App Router), TypeScript, Tailwind CSS, Postgres.
 
 ## License
 

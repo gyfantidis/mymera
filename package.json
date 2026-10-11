@@ -5,11 +5,13 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start"
+    "start": "next start",
+    "db:up": "docker compose up -d --wait db",
+    "db:down": "docker compose down"
   },
   "dependencies": {
-    "@libsql/client": "^0.18.0",
     "next": "16.4.0",
+    "postgres": "^3.4.9",
     "react": "19.3.0",
     "react-dom": "19.3.0"
   },

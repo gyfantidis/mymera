@@ -9,6 +9,7 @@ import { isMonth, totalsByCategory, type CategoryTotal } from "@/lib/money-share
 import { periodLabel, periodRange, shiftPeriod } from "@/lib/periods";
 import AddForm from "./add-form";
 import DeleteButton from "./delete-button";
+import EmptyState from "../empty-state";
 import MoneyNav, { Card, tone } from "./money-nav";
 import LoadingText from "../loading-text";
 
@@ -85,7 +86,7 @@ async function Month({ searchParams }: Pick<PageProps<"/money">, "searchParams">
       <section>
         <h2 className="heading">{t("money.entries")}</h2>
         {transactions.length === 0 ? (
-          <p className="rounded-2xl border border-border bg-surface p-6 text-center text-sm text-muted">{t("money.noEntries")}</p>
+          <EmptyState>{t("money.noEntries")}</EmptyState>
         ) : (
           <div className="flex flex-col gap-3">
             {days.map((day) => (

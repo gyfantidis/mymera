@@ -46,6 +46,8 @@ async function Day({ searchParams }: Pick<PageProps<"/">, "searchParams">) {
   const range = await getRange(addDays(earliest, -TREND_LOOKBACK), today);
   const metrics = scoringMetrics(config);
   const trends = trendHistory(metrics, range);
+  const week = daysIn(addDays(day, -6), addDays(day, -1));
+  const recent = Object.fromEntries(metrics.map((m) => [m.id, week.map((d) => range[d]?.[m.id]?.value ?? null)]));
 
   // The overview describes the present, so it only appears on today's page.
   const overview = day === today && (
@@ -62,7 +64,7 @@ async function Day({ searchParams }: Pick<PageProps<"/">, "searchParams">) {
         const metric = metrics.find((m) => m.id === goal.metricId);
         if (goal.metricId !== null && !metric) return [];
         const progress = goalProgress(goal, metric, metric ? seriesOf(range, metric.id) : {}, balance, today);
-        return [{ id: goal.id, title: goalTitle(goal, metric, f), progress }];
+        return [{ id: goal.id, title: goalTitle(goal, metric, f), kind: goal.kind, progress }];
       })}
       f={f}
     />
@@ -76,6 +78,7 @@ async function Day({ searchParams }: Pick<PageProps<"/">, "searchParams">) {
       metrics={metrics}
       entries={range[day] ?? {}}
       trends={trends}
+      recent={recent}
       overview={overview}
       note={note}
       today={today}

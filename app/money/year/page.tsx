@@ -83,6 +83,26 @@ async function Year({ searchParams }: Pick<PageProps<"/money/year">, "searchPara
 
       <section>
         <h2 className="heading">{t("money.byMonth")}</h2>
+        {/* The year as twelve squares: blue for a month that ended up, red for one that ended down. */}
+        <div className="mb-3 grid grid-cols-12 gap-1.5">
+          {Array.from({ length: 12 }, (_, i) => {
+            const r = rows[i];
+            const month = `${year}-${String(i + 1).padStart(2, "0")}`;
+            const square = `flex aspect-square items-center justify-center rounded-[3px] text-[10px] ${
+              !r || r.result === 0 ? "bg-track text-muted" : r.result > 0 ? "bg-accent text-white" : "bg-bad text-white"
+            }`;
+            const initial = f.month(`${month}-01`).slice(0, 1).toUpperCase();
+            return r ? (
+              <Link key={month} href={`/money?m=${month}`} title={`${f.month(`${month}-01`)}: ${f.signed(r.result)}`} className={square}>
+                {initial}
+              </Link>
+            ) : (
+              <span key={month} className={square}>
+                {initial}
+              </span>
+            );
+          })}
+        </div>
         <div className="overflow-x-auto rounded-2xl border border-border bg-surface">
           <table className="w-full text-sm">
             <thead>

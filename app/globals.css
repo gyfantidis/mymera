@@ -75,3 +75,26 @@ input[type="number"]::-webkit-inner-spin-button,
 input[type="number"]::-webkit-outer-spin-button {
   -webkit-appearance: none;
 }
+
+/* Loading: square, rounded square and sun light up in turn. */
+@keyframes cell-on {
+  0%, 100% { opacity: 0.12; }
+  35%, 65% { opacity: 1; }
+}
+.loading-shapes > * {
+  animation: cell-on 1.3s ease-in-out infinite;
+}
+
+/* A square jumps when a target is reached. */
+@keyframes pop {
+  40% { transform: scale(1.7); }
+}
+.pop {
+  animation: pop 0.45s ease-out both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .loading-shapes > *, .pop {
+    animation: none;
+  }
+}

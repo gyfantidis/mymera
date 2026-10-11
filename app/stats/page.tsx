@@ -11,6 +11,7 @@ import { PERIODS, daysIn, isPeriod, periodLabel, periodRange, shiftPeriod, weekS
 import type { Metric } from "@/lib/metrics";
 import { TREND_LOOKBACK, windowAverage, type Series } from "@/lib/score";
 import { average, buckets, dayPoints, metricStats, trendHistory, type Bucket, type DayPoint, type MetricStat } from "@/lib/stats";
+import EmptyState from "../empty-state";
 import LoadingText from "../loading-text";
 
 export default function Page({ searchParams }: PageProps<"/stats">) {
@@ -77,9 +78,7 @@ async function Stats({ searchParams }: Pick<PageProps<"/stats">, "searchParams">
       </header>
 
       {logged.length === 0 ? (
-        <p className="rounded-2xl border border-border bg-surface p-6 text-center text-sm text-muted">
-          {t("stats.empty")}
-        </p>
+        <EmptyState>{t("stats.empty")}</EmptyState>
       ) : (
         <>
           <dl className="grid grid-cols-2 gap-3">

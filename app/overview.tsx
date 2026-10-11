@@ -1,9 +1,11 @@
 import Link from "next/link";
-import type { Progress } from "@/lib/goals-shared";
+import EmptyState from "./empty-state";
+import GoalBlocks from "./goals/goal-blocks";
+import type { GoalKind, Progress } from "@/lib/goals-shared";
 import type { I18n } from "@/lib/i18n";
 
 export type TrendSummary = { id: string; name: string; unit: string; target: number; average: number | null; previous: number | null };
-export type GoalSummary = { id: string; title: string; progress: Progress };
+export type GoalSummary = { id: string; title: string; kind: GoalKind; progress: Progress };
 
 type Props = {
   trends: TrendSummary[];
@@ -50,17 +52,17 @@ export default function Overview({ trends, money, goals, f }: Props) {
       <Link href="/goals" className={`${card} col-span-2`}>
         <p className="text-xs text-muted">{tr("nav.goals")}</p>
         {goals.length === 0 ? (
-          <p className="mt-1 text-sm text-muted">{tr("overview.noGoals")}</p>
+          <EmptyState bare>{tr("overview.noGoals")}</EmptyState>
         ) : (
           <ul className="mt-2 flex flex-col gap-3">
-            {goals.map(({ id, title, progress: p }) => (
+            {goals.map(({ id, title, kind, progress: p }) => (
               <li key={id}>
                 <div className="flex items-baseline justify-between gap-3 text-sm">
                   <span className="min-w-0 truncate">{title}</span>
                   <span className={`shrink-0 text-xs ${STATUS_TEXT[p.status]}`}>{tr(`goals.status.${p.status}`)}</span>
                 </div>
-                <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-track">
-                  <div className={`h-full rounded-full ${p.status === "behind" ? "bg-bad" : "bg-accent"}`} style={{ width: `${(p.fraction ?? 0) * 100}%` }} />
+                <div className="mt-1.5">
+                  <GoalBlocks kind={kind} progress={p} size="sm" />
                 </div>
               </li>
             ))}

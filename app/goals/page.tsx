@@ -9,7 +9,9 @@ import { GOAL_LOOKBACK, goalAmount, goalProgress, goalTitle, type Goal, type Pro
 import { scoringMetrics, type Metric } from "@/lib/metrics";
 import { balanceAt } from "@/lib/money";
 import { seriesOf } from "@/lib/stats";
+import EmptyState from "../empty-state";
 import DeleteGoal from "./delete-goal";
+import GoalBlocks from "./goal-blocks";
 import GoalForm from "./goal-form";
 import LoadingText from "../loading-text";
 
@@ -49,7 +51,7 @@ async function Goals() {
         <p className="text-sm text-muted">{t("goals.intro")}</p>
       </div>
       {goals.length === 0 ? (
-        <p className="rounded-2xl border border-border bg-surface p-6 text-center text-sm text-muted">{t("goals.empty")}</p>
+        <EmptyState>{t("goals.empty")}</EmptyState>
       ) : (
         <ul className="flex flex-col gap-3">
           {goals.map((goal) => {
@@ -100,9 +102,7 @@ function GoalCard({ goal, metric, progress: p, f }: { goal: Goal; metric: Metric
         <DeleteGoal id={goal.id} label={name} />
       </div>
       <div className="mt-3 flex items-center gap-3 pr-2">
-        <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-track">
-          <div className={`h-full rounded-full ${p.status === "behind" ? "bg-bad" : "bg-accent"}`} style={{ width: `${(p.fraction ?? 0) * 100}%` }} />
-        </div>
+        <GoalBlocks kind={goal.kind} progress={p} />
         <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium ${BADGES[p.status]}`}>{f.t(`goals.status.${p.status}`)}</span>
       </div>
     </li>

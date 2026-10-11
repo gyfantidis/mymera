@@ -59,8 +59,8 @@ export async function POST(req: Request) {
   let saved = 0;
   for (const [day, metrics] of Object.entries(totals)) {
     for (const [metric, value] of Object.entries(metrics)) {
-      await setEntry(day, metric, Math.round(value * 100) / 100, "health");
-      saved++;
+      // Skipped when the user has removed that metric.
+      if (await setEntry(day, metric, Math.round(value * 100) / 100, "health")) saved++;
     }
   }
   return Response.json({ saved, days: Object.keys(totals).sort() });

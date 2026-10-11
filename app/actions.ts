@@ -1,29 +1,59 @@
 "use server";
 
 import { refresh } from "next/cache";
-import { setEntry, setOverrides } from "@/lib/db";
+import { getConfig, saveConfig, setEntry } from "@/lib/db";
 import { isDay } from "@/lib/dates";
-import { DEFAULT_METRICS, type Overrides } from "@/lib/metrics";
+import type { Config, InputKind, Metric, Role } from "@/lib/metrics";
 
 export async function saveEntry(day: string, metric: string, value: number | null) {
   if (!isDay(day)) throw new Error("Invalid day");
   if (value !== null && (!Number.isFinite(value) || value < 0)) throw new Error("Invalid value");
-  await setEntry(day, metric, value, "manual");
+  if (!(await setEntry(day, metric, value, "manual"))) throw new Error("Unknown metric");
   refresh();
 }
 
-export async function saveOverrides(input: Overrides) {
-  const clean: Overrides = {};
-  for (const m of DEFAULT_METRICS) {
-    const o = input[m.key];
-    if (!o) continue;
-    const entry: Overrides[string] = {};
-    for (const f of ["target", "free", "points"] as const) {
-      const v = o[f];
-      if (typeof v === "number" && Number.isFinite(v) && v >= 0 && v !== m[f]) entry[f] = v;
-    }
-    if (Object.keys(entry).length) clean[m.key] = entry;
-  }
-  await setOverrides(clean);
+const ID = /^[a-z0-9_-]{1,40}$/;
+const ROLES: Role[] = ["core", "bonus", "penalty"];
+const INPUTS: InputKind[] = ["number", "bool", "rating"];
+
+const isName = (s: unknown): s is string => typeof s === "string" && s.trim().length > 0 && s.length <= 60;
+const isAmount = (n: unknown): n is number => typeof n === "number" && Number.isFinite(n) && n >= 0;
+
+export async function saveSettings(input: Config) {
+  const existing = new Map((await getConfig()).metrics.map((m) => [m.id, m]));
+
+  const sections = input.sections.map((s) => {
+    if (!ID.test(s.id) || !isName(s.name)) throw new Error("Invalid section");
+    return { id: s.id, name: s.name.trim(), archived: !!s.archived };
+  });
+  const sectionIds = new Set(sections.map((s) => s.id));
+  if (sectionIds.size !== sections.length) throw new Error("Duplicate section");
+
+  const seen = new Set<string>();
+  const metrics = input.metrics.map((m): Metric => {
+    const kind = existing.get(m.id)?.input ?? m.input;
+    if (!ID.test(m.id) || seen.has(m.id) || !isName(m.name) || !sectionIds.has(m.sectionId)) throw new Error("Invalid metric");
+    if (!ROLES.includes(m.role) || !INPUTS.includes(kind)) throw new Error("Invalid metric type");
+    if (![m.target, m.free, m.points, m.step].every(isAmount)) throw new Error("Invalid metric numbers");
+    if (typeof m.unit !== "string" || m.unit.length > 20) throw new Error("Invalid unit");
+    seen.add(m.id);
+    const target = kind === "bool" ? 1 : kind === "rating" ? Math.min(5, Math.max(1, m.target)) : m.target;
+    if (target <= 0) throw new Error("Target must be positive");
+    return {
+      id: m.id,
+      sectionId: m.sectionId,
+      name: m.name.trim(),
+      role: m.role,
+      input: kind,
+      unit: kind === "number" ? m.unit.trim() : kind === "rating" ? "/5" : "",
+      target,
+      free: kind === "number" && m.role === "penalty" ? Math.min(m.free, target) : 0,
+      points: m.points,
+      step: kind === "number" && m.step > 0 ? m.step : 1,
+      archived: !!m.archived,
+    };
+  });
+
+  await saveConfig({ sections, metrics });
   refresh();
 }

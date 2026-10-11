@@ -1,8 +1,8 @@
 import { connection } from "next/server";
 import { Suspense } from "react";
-import { getOverrides, getRange, toValues } from "@/lib/db";
+import { getConfig, getRange, toValues } from "@/lib/db";
 import { addDays, dayOf, isDay } from "@/lib/dates";
-import { applyOverrides } from "@/lib/metrics";
+import { activeSections, scoringMetrics } from "@/lib/metrics";
 import { dayScore } from "@/lib/score";
 import DayView from "./day-view";
 
@@ -23,8 +23,8 @@ async function Day({ searchParams }: Pick<PageProps<"/">, "searchParams">) {
   const day = isDay(d) && d <= today ? d : today;
 
   const from = addDays(day, -(HISTORY_DAYS - 1));
-  const [range, overrides] = await Promise.all([getRange(from, day), getOverrides()]);
-  const metrics = applyOverrides(overrides);
+  const [range, config] = await Promise.all([getRange(from, day), getConfig()]);
+  const metrics = scoringMetrics(config);
 
   const history = Array.from({ length: HISTORY_DAYS }, (_, i) => {
     const date = addDays(from, i);
@@ -36,6 +36,7 @@ async function Day({ searchParams }: Pick<PageProps<"/">, "searchParams">) {
       key={day}
       day={day}
       isToday={day === today}
+      sections={activeSections(config)}
       metrics={metrics}
       entries={range[day] ?? {}}
       history={history}

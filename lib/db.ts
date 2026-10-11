@@ -1,5 +1,5 @@
-import { createClient, type Client } from "@libsql/client";
-import { DEFAULT_METRICS, type Overrides } from "./metrics";
+import { createClient, type Client, type InStatement } from "@libsql/client";
+import { DEFAULT_CONFIG, type Config, type InputKind, type Role } from "./metrics";
 import type { Values } from "./score";
 
 // Local file by default; set DATABASE_URL (+ DATABASE_AUTH_TOKEN) for a hosted libSQL/Turso db.
@@ -20,23 +20,90 @@ function db(): Promise<Client> {
          updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
          PRIMARY KEY (day, metric)
        )`,
-      `CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT NOT NULL)`,
+      `CREATE TABLE IF NOT EXISTS sections (
+         id TEXT PRIMARY KEY,
+         name TEXT NOT NULL,
+         position INTEGER NOT NULL,
+         archived INTEGER NOT NULL DEFAULT 0
+       )`,
+      `CREATE TABLE IF NOT EXISTS metrics (
+         id TEXT PRIMARY KEY,
+         section_id TEXT NOT NULL REFERENCES sections (id),
+         name TEXT NOT NULL,
+         role TEXT NOT NULL,
+         input TEXT NOT NULL,
+         unit TEXT NOT NULL,
+         target REAL NOT NULL,
+         free REAL NOT NULL,
+         points REAL NOT NULL,
+         step REAL NOT NULL,
+         position INTEGER NOT NULL,
+         archived INTEGER NOT NULL DEFAULT 0
+       )`,
     ]);
+    const count = await client.execute("SELECT count(*) AS n FROM sections");
+    if (Number(count.rows[0].n) === 0) await client.batch(configStatements(DEFAULT_CONFIG), "write");
     return client;
   })();
   return ready;
 }
 
-const KEYS = new Set(DEFAULT_METRICS.map((m) => m.key));
+// The metric's input type is fixed once created, so existing entries keep their meaning.
+function configStatements(config: Config): InStatement[] {
+  return [
+    ...config.sections.map((s, i) => ({
+      sql: `INSERT INTO sections (id, name, position, archived) VALUES (?, ?, ?, ?)
+            ON CONFLICT (id) DO UPDATE SET name = excluded.name, position = excluded.position, archived = excluded.archived`,
+      args: [s.id, s.name, i, s.archived ? 1 : 0],
+    })),
+    ...config.metrics.map((m, i) => ({
+      sql: `INSERT INTO metrics (id, section_id, name, role, input, unit, target, free, points, step, position, archived)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT (id) DO UPDATE SET section_id = excluded.section_id, name = excluded.name, role = excluded.role,
+              unit = excluded.unit, target = excluded.target, free = excluded.free, points = excluded.points,
+              step = excluded.step, position = excluded.position, archived = excluded.archived`,
+      args: [m.id, m.sectionId, m.name, m.role, m.input, m.unit, m.target, m.free, m.points, m.step, i, m.archived ? 1 : 0],
+    })),
+  ];
+}
+
+export async function getConfig(): Promise<Config> {
+  const client = await db();
+  const [sections, metrics] = await client.batch(
+    ["SELECT * FROM sections ORDER BY position", "SELECT * FROM metrics ORDER BY position"],
+    "read",
+  );
+  return {
+    sections: sections.rows.map((r) => ({ id: r.id as string, name: r.name as string, archived: !!r.archived })),
+    metrics: metrics.rows.map((r) => ({
+      id: r.id as string,
+      sectionId: r.section_id as string,
+      name: r.name as string,
+      role: r.role as Role,
+      input: r.input as InputKind,
+      unit: r.unit as string,
+      target: Number(r.target),
+      free: Number(r.free),
+      points: Number(r.points),
+      step: Number(r.step),
+      archived: !!r.archived,
+    })),
+  };
+}
+
+export async function saveConfig(config: Config) {
+  await (await db()).batch(configStatements(config), "write");
+}
 
 export type Entry = { value: number; source: string };
+export type Range = Record<string, Record<string, Entry>>;
 
-export async function getRange(from: string, to: string): Promise<Record<string, Record<string, Entry>>> {
+export async function getRange(from: string, to: string): Promise<Range> {
   const res = await (await db()).execute({
     sql: "SELECT day, metric, value, source FROM entries WHERE day BETWEEN ? AND ?",
     args: [from, to],
   });
-  const out: Record<string, Record<string, Entry>> = {};
+  const out: Range = {};
   for (const r of res.rows) {
     (out[r.day as string] ??= {})[r.metric as string] = { value: Number(r.value), source: r.source as string };
   }
@@ -47,30 +114,18 @@ export function toValues(entries: Record<string, Entry> | undefined): Values {
   return Object.fromEntries(Object.entries(entries ?? {}).map(([k, e]) => [k, e.value]));
 }
 
-// value === null clears the entry.
-export async function setEntry(day: string, metric: string, value: number | null, source: string) {
-  if (!KEYS.has(metric)) throw new Error(`Unknown metric: ${metric}`);
+// value === null clears the entry. Returns false when the metric does not exist.
+export async function setEntry(day: string, metric: string, value: number | null, source: string): Promise<boolean> {
   const client = await db();
   if (value === null) {
     await client.execute({ sql: "DELETE FROM entries WHERE day = ? AND metric = ?", args: [day, metric] });
-    return;
+    return true;
   }
-  await client.execute({
-    sql: `INSERT INTO entries (day, metric, value, source) VALUES (?, ?, ?, ?)
+  const res = await client.execute({
+    sql: `INSERT INTO entries (day, metric, value, source)
+          SELECT ?, id, ?, ? FROM metrics WHERE id = ?
           ON CONFLICT (day, metric) DO UPDATE SET value = excluded.value, source = excluded.source, updated_at = CURRENT_TIMESTAMP`,
-    args: [day, metric, value, source],
+    args: [day, value, source, metric],
   });
-}
-
-export async function getOverrides(): Promise<Overrides> {
-  const res = await (await db()).execute("SELECT value FROM settings WHERE key = 'overrides'");
-  return res.rows[0] ? JSON.parse(res.rows[0].value as string) : {};
-}
-
-export async function setOverrides(overrides: Overrides) {
-  await (await db()).execute({
-    sql: `INSERT INTO settings (key, value) VALUES ('overrides', ?)
-          ON CONFLICT (key) DO UPDATE SET value = excluded.value`,
-    args: [JSON.stringify(overrides)],
-  });
+  return res.rowsAffected > 0;
 }

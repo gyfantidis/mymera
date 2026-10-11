@@ -1,48 +1,108 @@
-export type Group = "core" | "bonus" | "penalty";
+export type Role = "core" | "bonus" | "penalty";
 export type InputKind = "number" | "bool" | "rating";
 
+export type Section = {
+  id: string;
+  name: string;
+  archived: boolean;
+};
+
 export type Metric = {
-  key: string;
-  label: string;
-  group: Group;
+  id: string;
+  sectionId: string;
+  name: string;
+  role: Role;
   input: InputKind;
   unit: string;
   // core/bonus: value that earns full points. penalty: value that costs full points.
   target: number;
   // penalty only: amount allowed before any points are lost.
   free: number;
+  // core: weight relative to the other core metrics. bonus/penalty: points added or removed.
   points: number;
   step: number;
-  // where the value is expected to come from once automation is connected
-  source: "health" | "mac" | "manual";
+  archived: boolean;
 };
 
-export type Overrides = Record<string, Partial<Pick<Metric, "target" | "free" | "points">>>;
+// Sections and metrics are stored in display order.
+export type Config = { sections: Section[]; metrics: Metric[] };
 
-export const DEFAULT_METRICS: Metric[] = [
-  { key: "focus", label: "Συγκέντρωση στη δουλειά", group: "core", input: "number", unit: "λεπτά", target: 240, free: 0, points: 30, step: 15, source: "mac" },
-  { key: "workout", label: "Γυμναστική", group: "core", input: "number", unit: "λεπτά", target: 45, free: 0, points: 20, step: 5, source: "health" },
-  { key: "sleep", label: "Ύπνος", group: "core", input: "number", unit: "ώρες", target: 7.5, free: 0, points: 20, step: 0.25, source: "health" },
-  { key: "nutrition", label: "Διατροφή", group: "core", input: "rating", unit: "/5", target: 4, free: 0, points: 20, step: 1, source: "manual" },
-  { key: "steps", label: "Βήματα", group: "core", input: "number", unit: "βήματα", target: 8000, free: 0, points: 10, step: 500, source: "health" },
-
-  { key: "reading", label: "Διάβασμα βιβλίου", group: "bonus", input: "number", unit: "λεπτά", target: 30, free: 0, points: 5, step: 5, source: "manual" },
-  { key: "friends", label: "Συνάντηση με φίλους", group: "bonus", input: "bool", unit: "", target: 1, free: 0, points: 4, step: 1, source: "manual" },
-  { key: "walk", label: "Βόλτα", group: "bonus", input: "bool", unit: "", target: 1, free: 0, points: 3, step: 1, source: "manual" },
-  { key: "social_post", label: "Ποστ στα social", group: "bonus", input: "bool", unit: "", target: 1, free: 0, points: 3, step: 1, source: "manual" },
-
-  { key: "youtube", label: "YouTube", group: "penalty", input: "number", unit: "λεπτά", target: 120, free: 30, points: 10, step: 10, source: "mac" },
-  { key: "series", label: "Σειρές", group: "penalty", input: "number", unit: "λεπτά", target: 150, free: 45, points: 8, step: 15, source: "manual" },
-  { key: "eating_out", label: "Φαγητό έξω", group: "penalty", input: "bool", unit: "", target: 1, free: 0, points: 5, step: 1, source: "manual" },
-  { key: "spending", label: "Σπατάλη χρημάτων", group: "penalty", input: "number", unit: "€", target: 50, free: 0, points: 8, step: 5, source: "manual" },
-];
-
-export const GROUP_LABELS: Record<Group, string> = {
-  core: "Βάση της ημέρας",
+export const ROLE_LABELS: Record<Role, string> = {
+  core: "Βασικός",
   bonus: "Μπόνους",
-  penalty: "Αφαιρούν πόντους",
+  penalty: "Ποινή",
 };
 
-export function applyOverrides(overrides: Overrides): Metric[] {
-  return DEFAULT_METRICS.map((m) => ({ ...m, ...overrides[m.key] }));
+export const INPUT_LABELS: Record<InputKind, string> = {
+  number: "Αριθμός",
+  bool: "Ναι / Όχι",
+  rating: "Βαθμολογία 1–5",
+};
+
+export const CORE_TOTAL = 100;
+
+const m = (
+  id: string,
+  sectionId: string,
+  name: string,
+  role: Role,
+  input: InputKind,
+  unit: string,
+  target: number,
+  free: number,
+  points: number,
+  step: number,
+): Metric => ({ id, sectionId, name, role, input, unit, target, free, points, step, archived: false });
+
+// Starting template for a new database; everything in it can be changed from Settings.
+export const DEFAULT_CONFIG: Config = {
+  sections: [
+    { id: "work", name: "Δουλειά & δημιουργία", archived: false },
+    { id: "health", name: "Υγεία", archived: false },
+    { id: "life", name: "Ζωή", archived: false },
+    { id: "avoid", name: "Προς αποφυγή", archived: false },
+  ],
+  metrics: [
+    m("focus", "work", "Συγκέντρωση στη δουλειά", "core", "number", "λεπτά", 240, 0, 30, 15),
+    m("social_post", "work", "Ποστ στα social", "bonus", "bool", "", 1, 0, 3, 1),
+
+    m("workout", "health", "Γυμναστική", "core", "number", "λεπτά", 45, 0, 20, 5),
+    m("sleep", "health", "Ύπνος", "core", "number", "ώρες", 7.5, 0, 20, 0.25),
+    m("nutrition", "health", "Διατροφή", "core", "rating", "/5", 4, 0, 20, 1),
+    m("steps", "health", "Βήματα", "core", "number", "βήματα", 8000, 0, 10, 500),
+
+    m("reading", "life", "Διάβασμα βιβλίου", "bonus", "number", "λεπτά", 30, 0, 5, 5),
+    m("friends", "life", "Συνάντηση με φίλους", "bonus", "bool", "", 1, 0, 4, 1),
+    m("walk", "life", "Βόλτα", "bonus", "bool", "", 1, 0, 3, 1),
+
+    m("youtube", "avoid", "YouTube", "penalty", "number", "λεπτά", 120, 30, 10, 10),
+    m("series", "avoid", "Σειρές", "penalty", "number", "λεπτά", 150, 45, 8, 15),
+    m("eating_out", "avoid", "Φαγητό έξω", "penalty", "bool", "", 1, 0, 5, 1),
+    m("spending", "avoid", "Σπατάλη χρημάτων", "penalty", "number", "€", 50, 0, 8, 5),
+  ],
+};
+
+export function defaultStep(target: number): number {
+  if (target >= 1000) return 500;
+  if (target >= 100) return 10;
+  if (target >= 20) return 5;
+  if (target >= 5) return 1;
+  return 0.25;
+}
+
+export function activeSections(config: Config): Section[] {
+  return config.sections.filter((s) => !s.archived);
+}
+
+// Metrics that count toward the score, in display order. Core weights are rescaled so that
+// a perfect day is always worth CORE_TOTAL, however many core metrics exist.
+export function scoringMetrics(config: Config): Metric[] {
+  const order = new Map(activeSections(config).map((s, i) => [s.id, i]));
+  const active = config.metrics
+    .filter((x) => !x.archived && order.has(x.sectionId))
+    .map((x, i) => ({ x, i }))
+    .sort((a, b) => order.get(a.x.sectionId)! - order.get(b.x.sectionId)! || a.i - b.i)
+    .map(({ x }) => x);
+  const coreSum = active.reduce((s, x) => s + (x.role === "core" ? x.points : 0), 0);
+  return active.map((x) => (x.role === "core" && coreSum > 0 ? { ...x, points: (x.points / coreSum) * CORE_TOTAL } : x));
 }

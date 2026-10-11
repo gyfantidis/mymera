@@ -1,40 +1,156 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { saveOverrides } from "../actions";
-import { DEFAULT_METRICS, GROUP_LABELS, type Group, type Metric, type Overrides } from "@/lib/metrics";
+import { saveSettings } from "../actions";
+import {
+  CORE_TOTAL,
+  INPUT_LABELS,
+  ROLE_LABELS,
+  defaultStep,
+  type Config,
+  type InputKind,
+  type Metric,
+  type Role,
+  type Section,
+} from "@/lib/metrics";
 
-type Field = "target" | "free" | "points";
-type Draft = Record<string, Record<Field, string>>;
+// Numbers are kept as text while editing so half-typed values don't get rewritten.
+type Draft = Omit<Metric, "target" | "free" | "points"> & { target: string; free: string; points: string };
 
-const GROUPS: Group[] = ["core", "bonus", "penalty"];
+const toDraft = (m: Metric): Draft => ({ ...m, target: String(m.target), free: String(m.free), points: String(m.points) });
+const num = (s: string) => (s.trim() === "" ? NaN : Number(s.replace(",", ".")));
+const newId = (prefix: string) => `${prefix}_${crypto.randomUUID().slice(0, 8)}`;
 
-const toDraft = (metrics: Metric[]): Draft =>
-  Object.fromEntries(metrics.map((m) => [m.key, { target: String(m.target), free: String(m.free), points: String(m.points) }]));
+function problem(m: Draft): string | null {
+  if (!m.name.trim()) return "Λείπει το όνομα.";
+  if (!(num(m.points) >= 0)) return "Οι πόντοι πρέπει να είναι αριθμός ≥ 0.";
+  if (m.input === "bool") return null;
+  if (!(num(m.target) > 0)) return "Ο στόχος πρέπει να είναι αριθμός > 0.";
+  if (m.input === "rating" && num(m.target) > 5) return "Ο στόχος της βαθμολογίας είναι έως 5.";
+  if (m.input === "number" && m.role === "penalty") {
+    if (!(num(m.free) >= 0)) return "Τα «ελεύθερα» πρέπει να είναι αριθμός ≥ 0.";
+    if (num(m.free) >= num(m.target)) return "Τα «ελεύθερα» πρέπει να είναι λιγότερα από τη μέγιστη ποινή.";
+  }
+  return null;
+}
 
-export default function SettingsForm({ metrics }: { metrics: Metric[] }) {
-  const [draft, setDraft] = useState<Draft>(() => toDraft(metrics));
-  const [status, setStatus] = useState<"idle" | "saved" | "error">("idle");
+function swap<T>(list: T[], i: number, j: number): T[] {
+  const next = [...list];
+  [next[i], next[j]] = [next[j], next[i]];
+  return next;
+}
+
+const field = "h-9 w-full rounded-lg border border-border bg-transparent px-2 text-sm text-fg outline-none focus:border-fg";
+const smallBtn = "rounded-lg bg-track px-2 py-1 text-xs text-muted hover:text-fg disabled:opacity-30";
+
+export default function SettingsForm({ config }: { config: Config }) {
+  const [sections, setSections] = useState<Section[]>(config.sections);
+  const [metrics, setMetrics] = useState<Draft[]>(() => config.metrics.map(toDraft));
+  const [created, setCreated] = useState<Set<string>>(new Set());
+  const [open, setOpen] = useState<string | null>(null);
+  const [status, setStatus] = useState<"idle" | "dirty" | "saved" | "error">("idle");
   const [pending, startTransition] = useTransition();
 
-  const num = (key: string, f: Field) => Number(draft[key][f].replace(",", "."));
-  const coreSum = metrics.filter((m) => m.group === "core").reduce((s, m) => s + (num(m.key, "points") || 0), 0);
-  const invalid = metrics.some((m) =>
-    (["target", "free", "points"] as const).some((f) => draft[m.key][f].trim() === "" || !(num(m.key, f) >= 0)),
-  );
+  const liveSections = sections.filter((s) => !s.archived);
+  const liveIds = new Set(liveSections.map((s) => s.id));
+  const coreSum = metrics
+    .filter((m) => m.role === "core" && !m.archived && liveIds.has(m.sectionId))
+    .reduce((sum, m) => sum + (num(m.points) || 0), 0);
+  const invalid = metrics.some((m) => problem(m)) || sections.some((s) => !s.name.trim());
+  const archivedSections = sections.filter((s) => s.archived);
+  const archivedMetrics = metrics.filter((m) => m.archived && liveIds.has(m.sectionId));
 
-  function set(key: string, f: Field, v: string) {
-    setDraft((d) => ({ ...d, [key]: { ...d[key], [f]: v } }));
-    setStatus("idle");
+  const touch = () => setStatus("dirty");
+  const patchMetric = (id: string, patch: Partial<Draft>) => {
+    setMetrics((list) => list.map((m) => (m.id === id ? { ...m, ...patch } : m)));
+    touch();
+  };
+  const patchSection = (id: string, patch: Partial<Section>) => {
+    setSections((list) => list.map((s) => (s.id === id ? { ...s, ...patch } : s)));
+    touch();
+  };
+
+  function moveSection(id: string, dir: 1 | -1) {
+    const i = sections.findIndex((s) => s.id === id);
+    let j = i + dir;
+    while (sections[j]?.archived) j += dir;
+    if (sections[j]) {
+      setSections(swap(sections, i, j));
+      touch();
+    }
+  }
+
+  function moveMetric(id: string, dir: 1 | -1) {
+    const i = metrics.findIndex((m) => m.id === id);
+    let j = i + dir;
+    while (metrics[j] && (metrics[j].sectionId !== metrics[i].sectionId || metrics[j].archived)) j += dir;
+    if (metrics[j]) {
+      setMetrics(swap(metrics, i, j));
+      touch();
+    }
+  }
+
+  function addSection() {
+    const id = newId("s");
+    setSections([...sections, { id, name: "Νέο section", archived: false }]);
+    setCreated(new Set(created).add(id));
+    touch();
+  }
+
+  function addMetric(sectionId: string) {
+    const id = newId("m");
+    setMetrics([
+      ...metrics,
+      { id, sectionId, name: "", role: "bonus", input: "bool", unit: "", target: "1", free: "0", points: "3", step: 1, archived: false },
+    ]);
+    setCreated(new Set(created).add(id));
+    setOpen(id);
+    touch();
+  }
+
+  // Items that were never saved are simply dropped; saved ones are archived to keep their history.
+  function removeSection(s: Section) {
+    if (created.has(s.id)) {
+      setSections(sections.filter((x) => x.id !== s.id));
+      setMetrics(metrics.filter((m) => m.sectionId !== s.id));
+      touch();
+    } else patchSection(s.id, { archived: true });
+  }
+
+  function removeMetric(m: Draft) {
+    if (created.has(m.id)) {
+      setMetrics(metrics.filter((x) => x.id !== m.id));
+      touch();
+    } else patchMetric(m.id, { archived: true });
+  }
+
+  function changeInput(m: Draft, input: InputKind) {
+    patchMetric(m.id, {
+      input,
+      target: input === "bool" ? "1" : input === "rating" ? "4" : "30",
+      unit: input === "number" ? "λεπτά" : input === "rating" ? "/5" : "",
+      free: "0",
+    });
   }
 
   function save() {
-    const overrides: Overrides = Object.fromEntries(
-      metrics.map((m) => [m.key, { target: num(m.key, "target"), free: num(m.key, "free"), points: num(m.key, "points") }]),
-    );
+    const payload: Config = {
+      sections,
+      metrics: metrics.map((m) => {
+        const target = m.input === "bool" ? 1 : num(m.target);
+        return {
+          ...m,
+          target,
+          free: num(m.free) || 0,
+          points: num(m.points),
+          step: created.has(m.id) ? defaultStep(target) : m.step,
+        };
+      }),
+    };
     startTransition(async () => {
       try {
-        await saveOverrides(overrides);
+        await saveSettings(payload);
+        setCreated(new Set());
         setStatus("saved");
       } catch {
         setStatus("error");
@@ -42,79 +158,199 @@ export default function SettingsForm({ metrics }: { metrics: Metric[] }) {
     });
   }
 
-  const input = "h-8 w-full rounded-lg border border-border bg-transparent px-2 text-right text-sm tabular-nums outline-none focus:border-fg";
-
   return (
-    <div className="flex flex-col gap-6">
-      {GROUPS.map((group) => (
-        <section key={group}>
-          <h2 className="mb-2 flex justify-between text-xs font-medium uppercase tracking-wider text-muted">
-            {GROUP_LABELS[group]}
-            {group === "core" && (
-              <span className={`normal-case tracking-normal ${coreSum === 100 ? "" : "text-bad"}`}>
-                Σύνολο πόντων: {coreSum}
-                {coreSum !== 100 && " (προτείνεται 100)"}
-              </span>
-            )}
-          </h2>
-          <ul className="divide-y divide-border rounded-2xl border border-border bg-surface">
-            {metrics
-              .filter((m) => m.group === group)
-              .map((m) => (
-                <li key={m.key} className="px-4 py-3">
-                  <p className="mb-2 font-medium">{m.label}</p>
-                  <div className="grid grid-cols-3 gap-3 text-xs text-muted">
-                    {m.input !== "bool" ? (
-                      <label>
-                        {group === "penalty" ? "Μέγιστη ποινή στα" : "Στόχος"} {m.unit && `(${m.unit})`}
-                        <input className={input} inputMode="decimal" value={draft[m.key].target} onChange={(e) => set(m.key, "target", e.target.value)} />
-                      </label>
-                    ) : (
-                      <span />
-                    )}
-                    {group === "penalty" && m.input === "number" ? (
-                      <label>
-                        Ελεύθερα ({m.unit})
-                        <input className={input} inputMode="decimal" value={draft[m.key].free} onChange={(e) => set(m.key, "free", e.target.value)} />
-                      </label>
-                    ) : (
-                      <span />
-                    )}
-                    <label>
-                      Πόντοι
-                      <input className={input} inputMode="decimal" value={draft[m.key].points} onChange={(e) => set(m.key, "points", e.target.value)} />
-                    </label>
-                  </div>
-                </li>
-              ))}
-          </ul>
-        </section>
-      ))}
+    <div className="flex flex-col gap-6 pb-20">
+      {liveSections.map((section, si) => {
+        const rows = metrics.filter((m) => m.sectionId === section.id && !m.archived);
+        return (
+          <section key={section.id} className="rounded-2xl border border-border bg-surface">
+            <div className="flex items-center gap-2 border-b border-border p-3">
+              <input
+                aria-label="Όνομα section"
+                className={`${field} font-medium ${section.name.trim() ? "" : "border-bad"}`}
+                value={section.name}
+                maxLength={60}
+                onChange={(e) => patchSection(section.id, { name: e.target.value })}
+              />
+              <button type="button" aria-label="Πάνω" className={smallBtn} disabled={si === 0} onClick={() => moveSection(section.id, -1)}>
+                ↑
+              </button>
+              <button
+                type="button"
+                aria-label="Κάτω"
+                className={smallBtn}
+                disabled={si === liveSections.length - 1}
+                onClick={() => moveSection(section.id, 1)}
+              >
+                ↓
+              </button>
+              <button type="button" className={smallBtn} onClick={() => removeSection(section)}>
+                {created.has(section.id) ? "Διαγραφή" : "Αρχειοθέτηση"}
+              </button>
+            </div>
 
-      <div className="flex items-center gap-3">
-        <button
-          type="button"
-          onClick={save}
-          disabled={pending || invalid}
-          className="rounded-lg bg-fg px-4 py-2 text-sm font-medium text-bg disabled:opacity-40"
-        >
-          {pending ? "Αποθήκευση…" : "Αποθήκευση"}
-        </button>
-        <button
-          type="button"
-          onClick={() => {
-            setDraft(toDraft(DEFAULT_METRICS));
-            setStatus("idle");
-          }}
-          className="rounded-lg px-3 py-2 text-sm text-muted hover:text-fg"
-        >
-          Επαναφορά προεπιλογών
-        </button>
-        <span role="status" className="text-sm">
-          {invalid && <span className="text-bad">Συμπλήρωσε όλα τα πεδία με αριθμούς ≥ 0.</span>}
-          {!invalid && status === "saved" && <span className="text-good">Αποθηκεύτηκε.</span>}
-          {!invalid && status === "error" && <span className="text-bad">Δεν αποθηκεύτηκε.</span>}
-        </span>
+            <ul className="divide-y divide-border">
+              {rows.map((m, mi) => {
+                const err = problem(m);
+                const share = coreSum > 0 ? ((num(m.points) || 0) / coreSum) * CORE_TOTAL : 0;
+                return (
+                  <li key={m.id} className="p-3">
+                    <button
+                      type="button"
+                      aria-expanded={open === m.id}
+                      onClick={() => setOpen(open === m.id ? null : m.id)}
+                      className="flex w-full items-center justify-between gap-3 text-left"
+                    >
+                      <span className="min-w-0">
+                        <span className="font-medium">{m.name.trim() || "Νέος τομέας"}</span>
+                        <span className="block text-xs text-muted">
+                          {ROLE_LABELS[m.role]} · {INPUT_LABELS[m.input]}
+                          {m.role === "core"
+                            ? ` · ${share.toFixed(1)} από τα ${CORE_TOTAL}`
+                            : ` · ${m.role === "penalty" ? "−" : "+"}${m.points} πόντοι`}
+                        </span>
+                        {err && <span className="block text-xs text-bad">{err}</span>}
+                      </span>
+                      <span className="shrink-0 text-xs text-muted">{open === m.id ? "Κλείσιμο" : "Επεξεργασία"}</span>
+                    </button>
+
+                    {open === m.id && (
+                      <div className="mt-3 grid grid-cols-2 gap-3 text-xs text-muted">
+                        <label className="col-span-2">
+                          Όνομα
+                          <input className={field} value={m.name} maxLength={60} onChange={(e) => patchMetric(m.id, { name: e.target.value })} />
+                        </label>
+                        <label>
+                          Section
+                          <select className={field} value={m.sectionId} onChange={(e) => patchMetric(m.id, { sectionId: e.target.value })}>
+                            {liveSections.map((s) => (
+                              <option key={s.id} value={s.id}>
+                                {s.name}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                        <label>
+                          Ρόλος
+                          <select className={field} value={m.role} onChange={(e) => patchMetric(m.id, { role: e.target.value as Role })}>
+                            {(Object.keys(ROLE_LABELS) as Role[]).map((r) => (
+                              <option key={r} value={r}>
+                                {ROLE_LABELS[r]}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                        <label>
+                          Τύπος
+                          {created.has(m.id) ? (
+                            <select className={field} value={m.input} onChange={(e) => changeInput(m, e.target.value as InputKind)}>
+                              {(Object.keys(INPUT_LABELS) as InputKind[]).map((k) => (
+                                <option key={k} value={k}>
+                                  {INPUT_LABELS[k]}
+                                </option>
+                              ))}
+                            </select>
+                          ) : (
+                            <span className="flex h-9 items-center text-sm text-fg">{INPUT_LABELS[m.input]}</span>
+                          )}
+                        </label>
+                        <label>
+                          {m.role === "core" ? "Βάρος" : "Πόντοι"}
+                          <input className={field} inputMode="decimal" value={m.points} onChange={(e) => patchMetric(m.id, { points: e.target.value })} />
+                        </label>
+                        {m.input === "number" && (
+                          <label>
+                            Μονάδα
+                            <input className={field} value={m.unit} maxLength={20} onChange={(e) => patchMetric(m.id, { unit: e.target.value })} />
+                          </label>
+                        )}
+                        {m.input !== "bool" && (
+                          <label>
+                            {m.role === "penalty" ? "Μέγιστη ποινή στα" : "Στόχος"}
+                            <input className={field} inputMode="decimal" value={m.target} onChange={(e) => patchMetric(m.id, { target: e.target.value })} />
+                          </label>
+                        )}
+                        {m.input === "number" && m.role === "penalty" && (
+                          <label>
+                            Ελεύθερα (χωρίς ποινή)
+                            <input className={field} inputMode="decimal" value={m.free} onChange={(e) => patchMetric(m.id, { free: e.target.value })} />
+                          </label>
+                        )}
+                        <div className="col-span-2 flex gap-2">
+                          <button type="button" className={smallBtn} disabled={mi === 0} onClick={() => moveMetric(m.id, -1)}>
+                            ↑ Πάνω
+                          </button>
+                          <button type="button" className={smallBtn} disabled={mi === rows.length - 1} onClick={() => moveMetric(m.id, 1)}>
+                            ↓ Κάτω
+                          </button>
+                          <button type="button" className={`${smallBtn} ml-auto`} onClick={() => removeMetric(m)}>
+                            {created.has(m.id) ? "Διαγραφή" : "Αρχειοθέτηση"}
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+
+            <div className="border-t border-border p-3">
+              <button type="button" className="text-sm text-muted hover:text-fg" onClick={() => addMetric(section.id)}>
+                + Νέος τομέας
+              </button>
+            </div>
+          </section>
+        );
+      })}
+
+      <button type="button" onClick={addSection} className="rounded-2xl border border-dashed border-border py-3 text-sm text-muted hover:text-fg">
+        + Νέο section
+      </button>
+
+      {(archivedSections.length > 0 || archivedMetrics.length > 0) && (
+        <section>
+          <h2 className="mb-2 text-xs font-medium uppercase tracking-wider text-muted">Αρχειοθετημένα</h2>
+          <ul className="divide-y divide-border rounded-2xl border border-border bg-surface text-sm">
+            {archivedSections.map((s) => (
+              <li key={s.id} className="flex items-center justify-between p-3">
+                <span>
+                  {s.name} <span className="text-xs text-muted">· section</span>
+                </span>
+                <button type="button" className={smallBtn} onClick={() => patchSection(s.id, { archived: false })}>
+                  Επαναφορά
+                </button>
+              </li>
+            ))}
+            {archivedMetrics.map((m) => (
+              <li key={m.id} className="flex items-center justify-between p-3">
+                <span>{m.name}</span>
+                <button type="button" className={smallBtn} onClick={() => patchMetric(m.id, { archived: false })}>
+                  Επαναφορά
+                </button>
+              </li>
+            ))}
+          </ul>
+          <p className="mt-2 text-xs text-muted">Τα αρχειοθετημένα δεν μετράνε στο σκορ, αλλά οι καταχωρήσεις τους δεν σβήνονται.</p>
+        </section>
+      )}
+
+      <div className="fixed inset-x-0 bottom-0 border-t border-border bg-bg/95 backdrop-blur">
+        <div className="mx-auto flex w-full max-w-xl items-center gap-3 px-4 py-3">
+          <button
+            type="button"
+            onClick={save}
+            disabled={pending || invalid || status === "idle" || status === "saved"}
+            className="rounded-lg bg-fg px-4 py-2 text-sm font-medium text-bg disabled:opacity-40"
+          >
+            {pending ? "Αποθήκευση…" : "Αποθήκευση"}
+          </button>
+          <span role="status" className="text-sm">
+            {invalid && <span className="text-bad">Διόρθωσε τα πεδία με κόκκινο.</span>}
+            {!invalid && status === "dirty" && <span className="text-muted">Υπάρχουν αλλαγές που δεν αποθηκεύτηκαν.</span>}
+            {!invalid && status === "saved" && <span className="text-good">Αποθηκεύτηκε.</span>}
+            {!invalid && status === "error" && <span className="text-bad">Δεν αποθηκεύτηκε.</span>}
+          </span>
+        </div>
       </div>
     </div>
   );

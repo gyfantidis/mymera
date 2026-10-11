@@ -5,23 +5,23 @@ import { useState, useTransition } from "react";
 import { saveEntry } from "./actions";
 import type { Entry } from "@/lib/db";
 import { addDays, formatDay } from "@/lib/dates";
-import { GROUP_LABELS, type Group, type Metric } from "@/lib/metrics";
+import { ROLE_LABELS, type Metric, type Section } from "@/lib/metrics";
 import { dayScore, metricPoints, progress, type Values } from "@/lib/score";
 
 type Props = {
   day: string;
   isToday: boolean;
+  sections: Section[];
   metrics: Metric[];
   entries: Record<string, Entry>;
   history: { day: string; score: number | null }[];
 };
 
 const SOURCE_LABELS: Record<string, string> = { health: "Υγεία", mac: "Mac" };
-const GROUPS: Group[] = ["core", "bonus", "penalty"];
 
 const fmt = (n: number) => (Number.isInteger(n) ? String(n) : n.toFixed(1));
 
-export default function DayView({ day, isToday, metrics, entries, history }: Props) {
+export default function DayView({ day, isToday, sections, metrics, entries, history }: Props) {
   const [values, setValues] = useState<Values>(() =>
     Object.fromEntries(Object.entries(entries).map(([k, e]) => [k, e.value])),
   );
@@ -77,24 +77,26 @@ export default function DayView({ day, isToday, metrics, entries, history }: Pro
         </p>
       )}
 
-      {GROUPS.map((group) => (
-        <section key={group}>
-          <h2 className="mb-2 text-xs font-medium uppercase tracking-wider text-muted">{GROUP_LABELS[group]}</h2>
-          <ul className="divide-y divide-border rounded-2xl border border-border bg-surface">
-            {metrics
-              .filter((m) => m.group === group)
-              .map((m) => (
+      {sections.map((section) => {
+        const rows = metrics.filter((m) => m.sectionId === section.id);
+        if (rows.length === 0) return null;
+        return (
+          <section key={section.id}>
+            <h2 className="mb-2 text-xs font-medium uppercase tracking-wider text-muted">{section.name}</h2>
+            <ul className="divide-y divide-border rounded-2xl border border-border bg-surface">
+              {rows.map((m) => (
                 <Row
-                  key={m.key}
+                  key={m.id}
                   metric={m}
-                  value={values[m.key]}
-                  source={values[m.key] === entries[m.key]?.value ? entries[m.key]?.source : undefined}
-                  onChange={(v) => update(m.key, v)}
+                  value={values[m.id]}
+                  source={values[m.id] === entries[m.id]?.value ? entries[m.id]?.source : undefined}
+                  onChange={(v) => update(m.id, v)}
                 />
               ))}
-          </ul>
-        </section>
-      ))}
+            </ul>
+          </section>
+        );
+      })}
 
       <section>
         <h2 className="mb-2 text-xs font-medium uppercase tracking-wider text-muted">Τελευταίες 14 μέρες</h2>
@@ -171,7 +173,7 @@ function Row({
   onChange: (v: number | undefined) => void;
 }) {
   const pts = metricPoints(m, value);
-  const penalty = m.group === "penalty";
+  const penalty = m.role === "penalty";
   const hint =
     m.input === "number"
       ? penalty
@@ -187,8 +189,13 @@ function Row({
     <li className="px-4 py-3">
       <div className="flex items-center justify-between gap-3">
         <div className="min-w-0">
-          <p className="flex items-center gap-2 font-medium">
-            {m.label}
+          <p className="flex flex-wrap items-center gap-x-2 font-medium">
+            {m.name}
+            {m.role !== "core" && (
+              <span className={`text-[10px] font-normal uppercase tracking-wider ${penalty ? "text-bad" : "text-good"}`}>
+                {ROLE_LABELS[m.role]}
+              </span>
+            )}
             {source && SOURCE_LABELS[source] && (
               <span className="rounded bg-track px-1.5 py-0.5 text-[10px] font-normal text-muted">{SOURCE_LABELS[source]}</span>
             )}
@@ -202,7 +209,7 @@ function Row({
               type="button"
               role="switch"
               aria-checked={!!value}
-              aria-label={m.label}
+              aria-label={m.name}
               onClick={() => onChange(value ? undefined : 1)}
               className={`h-7 w-12 rounded-full p-0.5 transition-colors ${value ? (penalty ? "bg-bad" : "bg-good") : "bg-track"}`}
             >
@@ -210,7 +217,7 @@ function Row({
             </button>
           )}
           {m.input === "rating" && (
-            <div className="flex gap-1" role="radiogroup" aria-label={m.label}>
+            <div className="flex gap-1" role="radiogroup" aria-label={m.name}>
               {[1, 2, 3, 4, 5].map((n) => (
                 <button
                   key={n}
@@ -235,7 +242,7 @@ function Row({
           />
         </div>
         <span className={`w-16 text-right text-xs tabular-nums ${penalty && pts < 0 ? "text-bad" : "text-muted"}`}>
-          {pts < 0 ? "−" : ""}{fmt(Math.round(Math.abs(pts) * 10) / 10)} / {m.points}
+          {pts < 0 ? "−" : ""}{fmt(Math.round(Math.abs(pts) * 10) / 10)} / {fmt(Math.round(m.points * 10) / 10)}
         </span>
       </div>
     </li>
@@ -262,12 +269,19 @@ function NumberField({
     if (Number.isFinite(n) && n >= 0 && n !== value) onChange(n);
   }
 
-  const bump = (dir: 1 | -1) => onChange(Math.max(0, Math.round(((value ?? 0) + dir * m.step) * 100) / 100));
+  function bump(dir: 1 | -1) {
+    if (value === undefined) {
+      // First tap on an empty field jumps to the target; penalties start from one step.
+      if (dir === 1) onChange(m.role === "penalty" ? m.step : m.target);
+      return;
+    }
+    onChange(Math.max(0, Math.round((value + dir * m.step) * 100) / 100));
+  }
   const btn = "h-8 w-8 rounded-lg bg-track text-muted hover:text-fg";
 
   return (
     <div className="flex items-center gap-1">
-      <button type="button" aria-label={`Λιγότερο: ${m.label}`} onClick={() => bump(-1)} className={btn}>
+      <button type="button" aria-label={`Λιγότερο: ${m.name}`} onClick={() => bump(-1)} className={btn}>
         −
       </button>
       <input
@@ -275,7 +289,7 @@ function NumberField({
         inputMode="decimal"
         min={0}
         step="any"
-        aria-label={`${m.label} (${m.unit})`}
+        aria-label={`${m.name} (${m.unit})`}
         placeholder="–"
         value={draft ?? (value === undefined ? "" : String(value))}
         onChange={(e) => setDraft(e.target.value)}
@@ -283,7 +297,7 @@ function NumberField({
         onKeyDown={(e) => e.key === "Enter" && e.currentTarget.blur()}
         className="h-8 w-16 rounded-lg border border-border bg-transparent text-center text-sm tabular-nums outline-none focus:border-fg"
       />
-      <button type="button" aria-label={`Περισσότερο: ${m.label}`} onClick={() => bump(1)} className={btn}>
+      <button type="button" aria-label={`Περισσότερο: ${m.name}`} onClick={() => bump(1)} className={btn}>
         +
       </button>
     </div>

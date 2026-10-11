@@ -1,0 +1,50 @@
+@import "tailwindcss";
+
+:root {
+  --bg: #f6f5f1;
+  --surface: #ffffff;
+  --border: #e4e2da;
+  --fg: #1c1b18;
+  --muted: #6f6c63;
+  --good: #2f7d4f;
+  --bad: #b4472e;
+  --track: #eceae3;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #121210;
+    --surface: #1b1b18;
+    --border: #2e2d28;
+    --fg: #edebe4;
+    --muted: #9a968b;
+    --good: #5cc084;
+    --bad: #e8795c;
+    --track: #2a2925;
+  }
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-border: var(--border);
+  --color-fg: var(--fg);
+  --color-muted: var(--muted);
+  --color-good: var(--good);
+  --color-bad: var(--bad);
+  --color-track: var(--track);
+}
+
+body {
+  background: var(--bg);
+  color: var(--fg);
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+input[type="number"] {
+  -moz-appearance: textfield;
+}
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+}

@@ -82,7 +82,7 @@ async function Year({ searchParams }: Pick<PageProps<"/money/year">, "searchPara
       </dl>
 
       <section>
-        <h2 className="mb-2 text-xs font-medium uppercase tracking-wider text-muted">{t("money.byMonth")}</h2>
+        <h2 className="heading">{t("money.byMonth")}</h2>
         <div className="overflow-x-auto rounded-2xl border border-border bg-surface">
           <table className="w-full text-sm">
             <thead>
@@ -115,7 +115,7 @@ async function Year({ searchParams }: Pick<PageProps<"/money/year">, "searchPara
 
       {expenses.length > 0 && (
         <section>
-          <h2 className="mb-2 text-xs font-medium uppercase tracking-wider text-muted">{t("money.yearExpenses")}</h2>
+          <h2 className="heading">{t("money.yearExpenses")}</h2>
           <ul className="divide-y divide-border rounded-2xl border border-border bg-surface">
             {expenses.map(({ category, total }) => (
               <li key={category.id} className="px-4 py-3">

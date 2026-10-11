@@ -73,23 +73,28 @@ export default function DayView({ day, today, sections, metrics, entries, trends
         )}
       </header>
 
-      <section
-        className="flex items-center gap-4 rounded-2xl border border-border bg-surface p-5 sm:gap-6"
-        // A faint wash of the score's colour, so a good day looks different at a glance.
-        style={{ backgroundImage: `linear-gradient(135deg, transparent 50%, color-mix(in srgb, ${TONES[tone(score.total)].color} 14%, transparent))` }}
-      >
-        <Ring score={score.total} />
-        <dl className="grid flex-1 grid-cols-3 divide-x divide-border text-center text-sm">
+      <section className="rounded-2xl bg-[#1238c9] p-5 text-white">
+        <div className="flex items-end justify-between gap-4">
+          <p className="flex items-baseline gap-2">
+            <span className="text-7xl font-extrabold leading-none tracking-tighter tabular-nums">{score.total}</span>
+            <span className="text-sm text-white/70">{t("day.outOf")}</span>
+          </p>
+          <Sun score={score.total} />
+        </div>
+        <div className="mt-4 h-1.5 overflow-hidden rounded-full bg-white/20">
+          <div className="h-full rounded-full bg-sun transition-[width] duration-500" style={{ width: `${score.total}%` }} />
+        </div>
+        <dl className="mt-4 grid grid-cols-3 gap-3 text-sm">
           <Stat label={t("day.core")} value={`${fmt(Math.round(score.core))}`} />
-          <Stat label={t("day.bonus")} value={`+${fmt(Math.round(score.bonus))}`} tone="good" />
-          <Stat label={t("day.penalties")} value={`${Math.round(-score.penalty) > 0 ? "−" : ""}${fmt(Math.abs(Math.round(score.penalty)))}`} tone="bad" />
+          <Stat label={t("day.bonus")} value={`+${fmt(Math.round(score.bonus))}`} />
+          <Stat label={t("day.penalties")} value={`${Math.round(-score.penalty) > 0 ? "−" : ""}${fmt(Math.abs(Math.round(score.penalty)))}`} />
         </dl>
       </section>
 
       {overview}
 
       <section>
-        <h2 className="mb-2 text-xs font-medium uppercase tracking-wider text-muted">{t("day.lastYear")}</h2>
+        <h2 className="heading">{t("day.lastYear")}</h2>
         <div className="rounded-2xl border border-border bg-surface p-3">
           <Heatmap
             points={history.map((h) => (h.day === day ? { day, score: hasData ? score.total : null } : h))}
@@ -115,7 +120,7 @@ export default function DayView({ day, today, sections, metrics, entries, trends
         if (rows.length === 0) return null;
         return (
           <section key={section.id}>
-            <h2 className="mb-2 text-xs font-medium uppercase tracking-wider text-muted">{section.name}</h2>
+            <h2 className="heading">{section.name}</h2>
             <ul className="divide-y divide-border rounded-2xl border border-border bg-surface">
               {rows.map((m) => (
                 <Row
@@ -166,7 +171,7 @@ function Note({ day, initial, onError }: { day: string; initial: string; onError
 
   return (
     <section>
-      <h2 className="mb-2 text-xs font-medium uppercase tracking-wider text-muted">
+      <h2 className="heading">
         <label htmlFor="day-note">{t("day.note")}</label>
       </h2>
       <textarea
@@ -183,49 +188,23 @@ function Note({ day, initial, onError }: { day: string; initial: string; onError
   );
 }
 
-// Score bands: strong from 70, middling from 40, weak below.
-const tone = (score: number) => (score >= 70 ? "good" : score >= 40 ? "warn" : "bad");
-const TONES = {
-  good: { color: "var(--good)", stroke: "stroke-good" },
-  warn: { color: "var(--warn)", stroke: "stroke-warn" },
-  bad: { color: "var(--bad)", stroke: "stroke-bad" },
-};
-
-function Ring({ score }: { score: number }) {
-  const { t } = useI18n();
-  const r = 42;
-  const c = 2 * Math.PI * r;
+// The sun climbs over the horizon as the day's score grows.
+function Sun({ score }: { score: number }) {
   return (
-    <div className="relative h-28 w-28 shrink-0 sm:h-32 sm:w-32">
-      <svg viewBox="0 0 100 100" className="h-full w-full -rotate-90">
-        <circle cx="50" cy="50" r={r} fill="none" strokeWidth="9" className="stroke-track" />
-        <circle
-          cx="50"
-          cy="50"
-          r={r}
-          fill="none"
-          strokeWidth="9"
-          strokeLinecap="round"
-          strokeDasharray={c}
-          strokeDashoffset={c * (1 - score / 100)}
-          className={`${TONES[tone(score)].stroke} transition-[stroke-dashoffset,stroke] duration-500`}
-        />
-      </svg>
-      <div className="absolute inset-0 flex flex-col items-center justify-center">
-        <span className="text-4xl font-semibold tracking-tight tabular-nums">{score}</span>
-        <span className="text-[10px] text-muted">{t("day.outOf")}</span>
-      </div>
+    <div aria-hidden="true" className="h-16 w-16 shrink-0 overflow-hidden border-b-2 border-white/70">
+      <div
+        className="mx-auto mt-1 h-14 w-14 rounded-full bg-sun transition-transform duration-500"
+        style={{ transform: `translateY(${(1 - score / 100) * 80}%)` }}
+      />
     </div>
   );
 }
 
-function Stat({ label, value, tone }: { label: string; value: string; tone?: "good" | "bad" }) {
+function Stat({ label, value }: { label: string; value: string }) {
   return (
-    <div className="px-1">
-      <dt className="truncate text-xs text-muted">{label}</dt>
-      <dd className={`text-lg font-medium tabular-nums ${tone === "good" ? "text-good" : tone === "bad" ? "text-bad" : ""}`}>
-        {value}
-      </dd>
+    <div>
+      <dt className="text-xs text-white/70">{label}</dt>
+      <dd className="text-lg font-bold tabular-nums">{value}</dd>
     </div>
   );
 }
@@ -290,9 +269,9 @@ function Row({
               aria-checked={!!value}
               aria-label={m.name}
               onClick={() => onChange(value ? undefined : 1)}
-              className={`h-7 w-12 rounded-full p-0.5 transition-colors ${value ? (penalty ? "bg-bad" : "bg-good") : "bg-track"}`}
+              className={`h-7 w-12 rounded-full p-0.5 transition-colors ${value ? (penalty ? "bg-bad" : "bg-accent") : "bg-track"}`}
             >
-              <span className={`block h-6 w-6 rounded-full bg-surface shadow transition-transform ${value ? "translate-x-5" : ""}`} />
+              <span className={`block h-6 w-6 rounded-full bg-white transition-transform ${value ? "translate-x-5" : ""}`} />
             </button>
           )}
           {m.input === "rating" && (
@@ -304,7 +283,7 @@ function Row({
                   role="radio"
                   aria-checked={value === n}
                   onClick={() => onChange(value === n ? undefined : n)}
-                  className={`h-8 w-8 rounded-lg text-sm tabular-nums ${value === n ? "bg-good text-surface" : "bg-track text-muted"}`}
+                  className={`h-8 w-8 rounded-lg text-sm tabular-nums ${value === n ? "bg-accent text-on-accent" : "bg-track text-muted"}`}
                 >
                   {n}
                 </button>
@@ -317,7 +296,7 @@ function Row({
         <div className="mt-2 flex items-center gap-3">
           <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-track">
             <div
-              className={`h-full rounded-full transition-[width] duration-300 ${penalty ? "bg-bad" : "bg-good"}`}
+              className={`h-full rounded-full transition-[width] duration-300 ${penalty ? "bg-bad" : "bg-accent"}`}
               style={{ width: `${progress(m, value, t?.fraction) * 100}%` }}
             />
           </div>

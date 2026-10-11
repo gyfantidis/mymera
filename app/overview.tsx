@@ -60,7 +60,7 @@ export default function Overview({ trends, money, goals, f }: Props) {
                   <span className={`shrink-0 text-xs ${STATUS_TEXT[p.status]}`}>{tr(`goals.status.${p.status}`)}</span>
                 </div>
                 <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-track">
-                  <div className={`h-full rounded-full ${p.status === "behind" ? "bg-bad" : "bg-good"}`} style={{ width: `${(p.fraction ?? 0) * 100}%` }} />
+                  <div className={`h-full rounded-full ${p.status === "behind" ? "bg-bad" : "bg-accent"}`} style={{ width: `${(p.fraction ?? 0) * 100}%` }} />
                 </div>
               </li>
             ))}

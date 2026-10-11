@@ -24,6 +24,7 @@ export const en: Record<keyof typeof el, string> = {
   "nav.goals": "Goals",
   "nav.money": "Money",
   "nav.settings": "Settings",
+  "nav.theme": "Light or dark theme",
   "role.core": "Core",
   "role.bonus": "Bonus",
   "role.penalty": "Penalty",

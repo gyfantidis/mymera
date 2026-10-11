@@ -335,7 +335,7 @@ export default function SettingsForm({ config }: { config: Config }) {
 
       {(archivedSections.length > 0 || archivedMetrics.length > 0) && (
         <section>
-          <h2 className="mb-2 text-xs font-medium uppercase tracking-wider text-muted">{t("settings.archived")}</h2>
+          <h2 className="heading">{t("settings.archived")}</h2>
           <ul className="divide-y divide-border rounded-2xl border border-border bg-surface text-sm">
             {archivedSections.map((s) => (
               <li key={s.id} className="flex items-center justify-between p-3">

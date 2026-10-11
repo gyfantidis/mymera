@@ -56,7 +56,7 @@ export default function CategoriesForm({ categories, opening }: { categories: Ca
   return (
     <div className="flex flex-col gap-6 pb-20">
       <section>
-        <h2 className="mb-2 text-xs font-medium uppercase tracking-wider text-muted">
+        <h2 className="heading">
           <label htmlFor="opening">{t("money.opening")}</label>
         </h2>
         <div className="rounded-2xl border border-border bg-surface p-4">
@@ -78,7 +78,7 @@ export default function CategoriesForm({ categories, opening }: { categories: Ca
 
       {(["expense", "income"] as Kind[]).map((kind) => (
         <section key={kind}>
-          <h2 className="mb-2 text-xs font-medium uppercase tracking-wider text-muted">{t("money.categoriesOf", { kind: t(`kind.${kind}`) })}</h2>
+          <h2 className="heading">{t("money.categoriesOf", { kind: t(`kind.${kind}`) })}</h2>
           <ul className="divide-y divide-border rounded-2xl border border-border bg-surface">
             {list
               .filter((c) => c.kind === kind && !c.archived)
@@ -108,7 +108,7 @@ export default function CategoriesForm({ categories, opening }: { categories: Ca
 
       {archived.length > 0 && (
         <section>
-          <h2 className="mb-2 text-xs font-medium uppercase tracking-wider text-muted">{t("money.archived")}</h2>
+          <h2 className="heading">{t("money.archived")}</h2>
           <ul className="divide-y divide-border rounded-2xl border border-border bg-surface text-sm">
             {archived.map((c) => (
               <li key={c.id} className="flex items-center justify-between p-3">

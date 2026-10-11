@@ -49,8 +49,9 @@ export default function Heatmap({ points, from, to, today, selected, months = fa
                 key={day}
                 href={`/?d=${day}`}
                 title={`${f.day(day)}: ${score ?? f.t("noData")}`}
-                className={`aspect-square rounded-[2px] bg-track ${day === selected ? "outline outline-2 outline-fg" : ""}`}
-                style={score === null ? undefined : { background: `color-mix(in srgb, var(--good) ${15 + score * 0.85}%, var(--track))` }}
+                className={`aspect-square bg-track ${day === today ? "rounded-full" : "rounded-[2px]"} ${day === selected ? "outline outline-2 outline-fg" : ""}`}
+                // Today is the sun, as in the logo; every other day gets bluer with its score.
+                style={day === today ? { background: "var(--sun)" } : score === null ? undefined : { background: `color-mix(in srgb, var(--accent) ${15 + score * 0.85}%, var(--track))` }}
               />
             );
           })}

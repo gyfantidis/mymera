@@ -75,7 +75,7 @@ async function Month({ searchParams }: Pick<PageProps<"/money">, "searchParams">
       </dl>
 
       <section>
-        <h2 className="mb-2 text-xs font-medium uppercase tracking-wider text-muted">{t("money.newEntry")}</h2>
+        <h2 className="heading">{t("money.newEntry")}</h2>
         <AddForm key={month} categories={categories.filter((c) => !c.archived)} defaultDay={lastDay} min={from} max={lastDay} />
       </section>
 
@@ -83,7 +83,7 @@ async function Month({ searchParams }: Pick<PageProps<"/money">, "searchParams">
       <Breakdown title={t("money.monthIncome")} rows={incomes} total={income} bar="bg-good" f={f} />
 
       <section>
-        <h2 className="mb-2 text-xs font-medium uppercase tracking-wider text-muted">{t("money.entries")}</h2>
+        <h2 className="heading">{t("money.entries")}</h2>
         {transactions.length === 0 ? (
           <p className="rounded-2xl border border-border bg-surface p-6 text-center text-sm text-muted">{t("money.noEntries")}</p>
         ) : (
@@ -126,7 +126,7 @@ function Breakdown({ title, rows, total, bar, f }: { title: string; rows: Catego
   if (rows.length === 0) return null;
   return (
     <section>
-      <h2 className="mb-2 text-xs font-medium uppercase tracking-wider text-muted">{title}</h2>
+      <h2 className="heading">{title}</h2>
       <ul className="divide-y divide-border rounded-2xl border border-border bg-surface">
         {rows.map(({ category, total: amount }) => (
           <li key={category.id} className="px-4 py-3">

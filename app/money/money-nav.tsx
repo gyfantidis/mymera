@@ -15,7 +15,7 @@ export default function MoneyNav({ active, f }: { active: (typeof TABS)[number][
           key={tab.key}
           href={tab.href}
           aria-current={tab.key === active ? "page" : undefined}
-          className={`flex-1 rounded-lg py-1.5 text-center text-sm ${tab.key === active ? "bg-surface font-medium shadow-sm" : "text-muted hover:text-fg"}`}
+          className={`flex-1 rounded-lg py-1.5 text-center text-sm ${tab.key === active ? "bg-accent font-medium text-on-accent" : "text-muted hover:text-fg"}`}
         >
           {f.t(`money.tab.${tab.key}`)}
         </Link>

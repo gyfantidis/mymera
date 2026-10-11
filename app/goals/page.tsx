@@ -24,7 +24,7 @@ export default function Page() {
 }
 
 const BADGES: Record<Progress["status"], string> = {
-  done: "bg-good text-surface",
+  done: "bg-accent text-on-accent",
   on: "bg-track text-good",
   behind: "bg-track text-bad",
   collecting: "bg-track text-muted",
@@ -63,7 +63,7 @@ async function Goals() {
       )}
 
       <section>
-        <h2 className="mb-2 text-xs font-medium uppercase tracking-wider text-muted">{t("goals.new")}</h2>
+        <h2 className="heading">{t("goals.new")}</h2>
         <GoalForm metrics={metrics} tomorrow={addDays(today, 1)} />
       </section>
     </>
@@ -101,7 +101,7 @@ function GoalCard({ goal, metric, progress: p, f }: { goal: Goal; metric: Metric
       </div>
       <div className="mt-3 flex items-center gap-3 pr-2">
         <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-track">
-          <div className={`h-full rounded-full ${p.status === "behind" ? "bg-bad" : "bg-good"}`} style={{ width: `${(p.fraction ?? 0) * 100}%` }} />
+          <div className={`h-full rounded-full ${p.status === "behind" ? "bg-bad" : "bg-accent"}`} style={{ width: `${(p.fraction ?? 0) * 100}%` }} />
         </div>
         <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium ${BADGES[p.status]}`}>{f.t(`goals.status.${p.status}`)}</span>
       </div>

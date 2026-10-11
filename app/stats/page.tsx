@@ -49,7 +49,7 @@ async function Stats({ searchParams }: Pick<PageProps<"/stats">, "searchParams">
   const series = trendHistory(metrics, range);
   const trendMetrics = metrics.filter((m) => m.scoring === "trend");
 
-  const tab = (active: boolean) => `flex-1 rounded-lg py-1.5 text-center text-sm ${active ? "bg-surface font-medium shadow-sm" : "text-muted hover:text-fg"}`;
+  const tab = (active: boolean) => `flex-1 rounded-lg py-1.5 text-center text-sm ${active ? "bg-accent font-medium text-on-accent" : "text-muted hover:text-fg"}`;
   const arrow = "rounded-lg px-3 py-2 text-muted hover:bg-track";
 
   return (
@@ -106,7 +106,7 @@ async function Stats({ searchParams }: Pick<PageProps<"/stats">, "searchParams">
           </dl>
 
           <section>
-            <h2 className="mb-2 text-xs font-medium uppercase tracking-wider text-muted">
+            <h2 className="heading">
               {t(period === "quarter" ? "stats.scoreByWeek" : period === "year" ? "stats.scoreByMonth" : "stats.scoreByDay")}
             </h2>
             <Chart items={buckets(period, points, f)} noData={t("noData")} />
@@ -114,7 +114,7 @@ async function Stats({ searchParams }: Pick<PageProps<"/stats">, "searchParams">
 
           {period !== "week" && (
             <section>
-              <h2 className="mb-2 text-xs font-medium uppercase tracking-wider text-muted">{t("stats.calendar")}</h2>
+              <h2 className="heading">{t("stats.calendar")}</h2>
               <div className="rounded-2xl border border-border bg-surface p-3">
                 <Heatmap points={points} from={from} to={to} today={today} months={period !== "month"} f={f} />
                 <p className="mt-2 text-[10px] text-muted">
@@ -126,7 +126,7 @@ async function Stats({ searchParams }: Pick<PageProps<"/stats">, "searchParams">
 
           {trendMetrics.length > 0 && (
             <section>
-              <h2 className="mb-2 text-xs font-medium uppercase tracking-wider text-muted">{t("stats.trends")}</h2>
+              <h2 className="heading">{t("stats.trends")}</h2>
               <div className="flex flex-col gap-3">
                 {trendMetrics.map((m) => (
                   <TrendCard key={m.id} metric={m} series={series[m.id] ?? {}} days={elapsed.map((x) => x.day)} span={points.length} f={f} />
@@ -140,7 +140,7 @@ async function Stats({ searchParams }: Pick<PageProps<"/stats">, "searchParams">
             if (rows.length === 0) return null;
             return (
               <section key={section.id}>
-                <h2 className="mb-2 text-xs font-medium uppercase tracking-wider text-muted">{section.name}</h2>
+                <h2 className="heading">{section.name}</h2>
                 <ul className="divide-y divide-border rounded-2xl border border-border bg-surface">
                   {rows.map((s) => (
                     <MetricRow key={s.metric.id} stat={s} f={f} />
@@ -175,7 +175,7 @@ function Chart({ items, noData }: { items: Bucket[]; noData: string }) {
         {items.map((b) => (
           <Link key={b.key} href={b.href} title={`${b.label}: ${b.score ?? noData}`} className="flex h-full flex-1 items-end">
             <span
-              className={`w-full rounded-sm ${b.score === null ? "bg-track" : "bg-good"}`}
+              className={`w-full rounded-sm ${b.score === null ? "bg-track" : "bg-accent"}`}
               style={{ height: b.score === null ? "3px" : `${Math.max(4, b.score)}%` }}
             />
           </Link>
@@ -240,7 +240,7 @@ function TrendCard({ metric: m, series, days, span, f }: { metric: Metric; serie
         {m.target > 0 && (
           <line x1="0" x2={W} y1={y(m.target)} y2={y(m.target)} className="stroke-muted" strokeWidth="1" strokeDasharray="4 4" />
         )}
-        <polyline points={line} fill="none" className="stroke-good" strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" />
+        <polyline points={line} fill="none" className="stroke-accent" strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" />
         {values.map((v, i) => (v === undefined ? null : <circle key={days[i]} cx={x(i)} cy={y(v)} r="3" className="fill-muted" />))}
       </svg>
       <p className="mt-1 text-[10px] text-muted">

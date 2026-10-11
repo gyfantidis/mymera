@@ -1,35 +1,27 @@
 @import "tailwindcss";
 
+/* Each colour is a light value and a dark value; color-scheme picks between them.
+   It follows the device unless the visitor chose a theme with the header button. */
 :root {
-  --bg: #f6f5f1;
-  --surface: #ffffff;
-  --border: #e7e4dc;
-  --fg: #171a18;
-  --muted: #6c706a;
-  --good: #1f9d63;
-  --warn: #d9951a;
-  --bad: #d4513f;
-  --accent: #0f766e;
+  color-scheme: light dark;
+  --bg: light-dark(#ffffff, #060b20);
+  --surface: light-dark(#ffffff, #0b1230);
+  --border: light-dark(#d5ddf7, #1d2a5e);
+  --fg: light-dark(#0b1b4d, #eef2ff);
+  --muted: light-dark(#5d6a99, #97a4d1);
+  --good: light-dark(#0b8a63, #3fd0a0);
+  --warn: light-dark(#c98a00, #ffc21a);
+  --bad: light-dark(#d63a2a, #ff7a6b);
+  --accent: light-dark(#1238c9, #5b7dff);
   --on-accent: #ffffff;
-  --track: #edebe4;
-  --shadow: 0 1px 2px rgb(23 26 24 / 0.04), 0 8px 24px -12px rgb(23 26 24 / 0.12);
+  --sun: #ffc21a;
+  --track: light-dark(#e8edfc, #172250);
 }
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #0e100f;
-    --surface: #171a18;
-    --border: #272b28;
-    --fg: #eceeec;
-    --muted: #9aa09b;
-    --good: #3ecf8e;
-    --warn: #f0b840;
-    --bad: #f07167;
-    --accent: #2dd4bf;
-    --on-accent: #06221f;
-    --track: #232724;
-    --shadow: 0 1px 2px rgb(0 0 0 / 0.3);
-  }
+:root[data-theme="light"] {
+  color-scheme: light;
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
 }
 
 @theme inline {
@@ -43,20 +35,37 @@
   --color-bad: var(--bad);
   --color-accent: var(--accent);
   --color-on-accent: var(--on-accent);
+  --color-sun: var(--sun);
   --color-track: var(--track);
-  --font-sans: var(--font-inter), system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-sans: var(--font-app), system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  /* Corners are tight everywhere: the look is lines and blocks, not soft cards. */
+  --radius-lg: 3px;
+  --radius-xl: 4px;
+  --radius-2xl: 6px;
 }
 
 body {
   background: var(--bg);
   color: var(--fg);
   font-family: var(--font-sans);
-  font-feature-settings: "cv11", "ss01";
 }
 
-/* Every card in the app is a large-radius surface; give them all the same soft lift. */
-.rounded-2xl.bg-surface {
-  box-shadow: var(--shadow);
+/* Section titles, marked with the same small square the logo is made of. */
+.heading {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+  font-size: 0.875rem;
+  font-weight: 700;
+}
+.heading::before {
+  content: "";
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 2px;
+  background: var(--sun);
+  flex: none;
 }
 
 input[type="number"] {

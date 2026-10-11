@@ -23,6 +23,7 @@ export const el = {
   "nav.goals": "Στόχοι",
   "nav.money": "Χρήματα",
   "nav.settings": "Ρυθμίσεις",
+  "nav.theme": "Φωτεινό ή σκούρο θέμα",
   "role.core": "Βασικός",
   "role.bonus": "Μπόνους",
   "role.penalty": "Ποινή",

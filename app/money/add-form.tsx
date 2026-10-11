@@ -51,7 +51,7 @@ export default function AddForm({ categories, defaultDay, min, max }: { categori
             role="radio"
             aria-checked={kind === k}
             onClick={() => switchKind(k)}
-            className={`flex-1 rounded-lg py-1.5 text-sm ${kind === k ? "bg-surface font-medium shadow-sm" : "text-muted"}`}
+            className={`flex-1 rounded-lg py-1.5 text-sm ${kind === k ? "bg-accent font-medium text-on-accent" : "text-muted"}`}
           >
             {t(`kind.${k}`)}
           </button>

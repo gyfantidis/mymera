@@ -33,8 +33,8 @@ export default function NavLinks() {
             key={item.href}
             href={item.href}
             aria-current={active ? "page" : undefined}
-            className={`flex flex-1 flex-col items-center gap-0.5 rounded-xl px-1 py-1.5 text-[11px] transition-colors sm:flex-none sm:flex-row sm:gap-1.5 sm:px-2.5 sm:text-sm ${
-              active ? "bg-accent/10 font-medium text-accent" : "text-muted hover:bg-track hover:text-fg"
+            className={`flex flex-1 flex-col items-center gap-0.5 border-b-[3px] px-1 pb-1.5 pt-1 text-[11px] transition-colors sm:flex-none sm:flex-row sm:gap-1.5 sm:px-2.5 sm:pb-2.5 sm:pt-2 sm:text-sm ${
+              active ? "border-sun font-bold text-accent" : "border-transparent text-muted hover:text-fg"
             }`}
           >
             <svg viewBox="0 0 20 20" className="h-5 w-5 sm:h-4 sm:w-4" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">

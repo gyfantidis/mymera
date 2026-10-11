@@ -5,14 +5,14 @@ import { dayScore, type Series } from "./score";
 
 export type DayPoint = { day: string; score: number | null };
 
+// One metric's values by day.
+export function seriesOf(range: Range, metricId: string): Series {
+  return Object.fromEntries(Object.entries(range).flatMap(([day, e]) => (e[metricId] ? [[day, e[metricId].value]] : [])));
+}
+
 // Values by day for each trend-scored metric.
 export function trendHistory(metrics: Metric[], range: Range): Record<string, Series> {
-  const out: Record<string, Series> = {};
-  for (const m of metrics) {
-    if (m.scoring !== "trend") continue;
-    out[m.id] = Object.fromEntries(Object.entries(range).flatMap(([day, e]) => (e[m.id] ? [[day, e[m.id].value]] : [])));
-  }
-  return out;
+  return Object.fromEntries(metrics.filter((m) => m.scoring === "trend").map((m) => [m.id, seriesOf(range, m.id)]));
 }
 
 // Days without any entry get a null score and are left out of every average.

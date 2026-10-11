@@ -25,6 +25,10 @@ The Stats page shows any week, month, quarter or year: average score against the
 
 Income and expenses are entered by hand with a date, a category and an amount. The month page shows income, expenses by category, the month's result and a running balance carried over from earlier months (starting from an opening balance you set). The year page puts the months side by side. Money does not affect the daily score.
 
+## Goals
+
+Goals describe a direction over weeks and never change the daily score. There are three kinds: change a metric by a percentage against your own recent average (YouTube −15%), reach a value, optionally by a date (weight, or the money balance), and hit a metric's target a number of days per week.
+
 ## Running locally
 
 You need Node.js and Docker.

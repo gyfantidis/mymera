@@ -87,4 +87,18 @@ export const MIGRATIONS: string[] = [
      ('subscriptions', 'Συνδρομές', 'expense', 9),
      ('shopping', 'Ψώνια', 'expense', 10),
      ('other_expense', 'Άλλα έξοδα', 'expense', 11);`,
+
+  // Goals: a direction over weeks, separate from the daily score. metric_id is NULL for the money balance.
+  `CREATE TABLE goals (
+     id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+     kind TEXT NOT NULL CHECK (kind IN ('change', 'reach', 'frequency')),
+     metric_id TEXT REFERENCES metrics (id),
+     percent DOUBLE PRECISION,
+     target_value DOUBLE PRECISION,
+     start_value DOUBLE PRECISION,
+     per_week INTEGER,
+     start_day DATE NOT NULL,
+     due_day DATE,
+     created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+   );`,
 ];

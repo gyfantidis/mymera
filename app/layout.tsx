@@ -21,9 +21,12 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
             <Link href="/" className="font-semibold tracking-tight">
               MyMera
             </Link>
-            <div className="flex gap-4 text-muted">
+            <div className="flex flex-wrap justify-end gap-x-4 gap-y-1 text-muted">
               <Link href="/stats" className="hover:text-fg">
                 Στατιστικά
+              </Link>
+              <Link href="/goals" className="hover:text-fg">
+                Στόχοι
               </Link>
               <Link href="/money" className="hover:text-fg">
                 Χρήματα

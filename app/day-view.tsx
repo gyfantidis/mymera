@@ -18,6 +18,8 @@ type Props = {
   // Values by day for each trend-scored metric, up to and including this day.
   trends: Record<string, Series>;
   note: string;
+  // Server-rendered summary of weight, money and goals; absent on past days.
+  overview: React.ReactNode;
   history: { day: string; score: number | null }[];
 };
 
@@ -26,7 +28,7 @@ const SOURCE_LABELS: Record<string, string> = { health: "Υγεία", mac: "Mac"
 const nf = new Intl.NumberFormat("el-GR", { maximumFractionDigits: 1 });
 const fmt = (n: number) => nf.format(n);
 
-export default function DayView({ day, today, sections, metrics, entries, trends, note, history }: Props) {
+export default function DayView({ day, today, sections, metrics, entries, trends, note, overview, history }: Props) {
   const [values, setValues] = useState<Values>(() =>
     Object.fromEntries(Object.entries(entries).map(([k, e]) => [k, e.value])),
   );
@@ -76,6 +78,8 @@ export default function DayView({ day, today, sections, metrics, entries, trends
           <Stat label="Ποινές" value={`${Math.round(-score.penalty) > 0 ? "−" : ""}${fmt(Math.round(-score.penalty))}`} tone="bad" />
         </dl>
       </section>
+
+      {overview}
 
       <section>
         <h2 className="mb-2 text-xs font-medium uppercase tracking-wider text-muted">Ο τελευταίος χρόνος</h2>

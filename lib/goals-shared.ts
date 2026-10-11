@@ -1,6 +1,7 @@
 // Goal types and progress maths; safe to import from client components.
 import { addDays } from "./dates";
 import type { Metric } from "./metrics";
+import { formatMoney } from "./money-shared";
 import { weekStart } from "./periods";
 import { windowAverage, type Series } from "./score";
 
@@ -133,3 +134,24 @@ export function goalProgress(goal: Goal, metric: Metric | undefined, series: Ser
   const status = fraction >= 1 ? "done" : due === null ? (movedAway ? "behind" : "on") : fraction >= due - 0.05 ? "on" : "behind";
   return { fraction, status, current, target, start };
 }
+
+const nf = new Intl.NumberFormat("el-GR", { maximumFractionDigits: 1 });
+
+// Money for the balance, the metric's unit otherwise.
+export function goalAmount(n: number, metric: Metric | undefined): string {
+  return metric ? `${nf.format(n)}${metric.unit ? ` ${metric.unit}` : ""}` : formatMoney(n);
+}
+
+export function goalTitle(goal: Goal, metric: Metric | undefined): string {
+  const name = metric?.name ?? "Υπόλοιπο χρημάτων";
+  if (goal.kind === "change") return `${name}: ${goal.percent! < 0 ? "μείωση" : "αύξηση"} κατά ${nf.format(Math.abs(goal.percent!))}%`;
+  if (goal.kind === "frequency") return `${name}: ${goal.perWeek} ${goal.perWeek === 1 ? "φορά" : "φορές"} την εβδομάδα`;
+  return `${name}: ${goalAmount(goal.targetValue!, metric)}`;
+}
+
+export const GOAL_STATUS_LABELS: Record<Progress["status"], string> = {
+  done: "Το πέτυχες",
+  on: "Σε καλό δρόμο",
+  behind: "Θέλει προσπάθεια",
+  collecting: "Μαζεύω δεδομένα",
+};

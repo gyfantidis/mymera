@@ -4,6 +4,10 @@
 
 It is an early personal project: single user, no login yet, manual entry plus a first endpoint for Apple Health data.
 
+## Home
+
+Today's page is the home screen: the day's score, an overview of weight, this month's money and goal progress, a GitHub-style calendar of the last year, and the entry fields for each section.
+
 ## How the score works
 
 Metrics live in sections you define (for example Health, Work, Life). Each metric has one of three roles:

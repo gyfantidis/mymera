@@ -3,10 +3,9 @@ import { Suspense } from "react";
 import { getConfig, getRange } from "@/lib/db";
 import { addDays, dayOf, formatDay } from "@/lib/dates";
 import { getGoals } from "@/lib/goals";
-import { GOAL_LOOKBACK, goalProgress, type Goal, type Progress } from "@/lib/goals-shared";
+import { GOAL_LOOKBACK, GOAL_STATUS_LABELS, goalAmount as amount, goalProgress, goalTitle as title, type Goal, type Progress } from "@/lib/goals-shared";
 import { scoringMetrics, type Metric } from "@/lib/metrics";
 import { balanceAt } from "@/lib/money";
-import { formatMoney } from "@/lib/money-shared";
 import { seriesOf } from "@/lib/stats";
 import DeleteGoal from "./delete-goal";
 import GoalForm from "./goal-form";
@@ -29,11 +28,11 @@ export default function Page() {
 
 const nf = new Intl.NumberFormat("el-GR", { maximumFractionDigits: 1 });
 
-const BADGES: Record<Progress["status"], { text: string; className: string }> = {
-  done: { text: "Το πέτυχες", className: "bg-good text-surface" },
-  on: { text: "Σε καλό δρόμο", className: "bg-track text-good" },
-  behind: { text: "Θέλει προσπάθεια", className: "bg-track text-bad" },
-  collecting: { text: "Μαζεύω δεδομένα", className: "bg-track text-muted" },
+const BADGES: Record<Progress["status"], string> = {
+  done: "bg-good text-surface",
+  on: "bg-track text-good",
+  behind: "bg-track text-bad",
+  collecting: "bg-track text-muted",
 };
 
 async function Goals() {
@@ -71,18 +70,6 @@ async function Goals() {
   );
 }
 
-function title(goal: Goal, metric: Metric | undefined): string {
-  const name = metric?.name ?? "Υπόλοιπο χρημάτων";
-  if (goal.kind === "change") return `${name}: ${goal.percent! < 0 ? "μείωση" : "αύξηση"} κατά ${nf.format(Math.abs(goal.percent!))}%`;
-  if (goal.kind === "frequency") return `${name}: ${goal.perWeek} ${goal.perWeek === 1 ? "φορά" : "φορές"} την εβδομάδα`;
-  return `${name}: ${amount(goal.targetValue!, metric)}`;
-}
-
-// Money for the balance, the metric's unit otherwise.
-function amount(n: number, metric: Metric | undefined): string {
-  return metric ? `${nf.format(n)}${metric.unit ? ` ${metric.unit}` : ""}` : formatMoney(n);
-}
-
 function detail(goal: Goal, metric: Metric | undefined, p: Progress): string {
   if (goal.kind === "frequency") {
     const streak = p.streak ? ` · ${p.streak} ${p.streak === 1 ? "εβδομάδα" : "εβδομάδες"} στη σειρά πριν από αυτή` : "";
@@ -100,7 +87,6 @@ function detail(goal: Goal, metric: Metric | undefined, p: Progress): string {
 }
 
 function GoalCard({ goal, metric, progress: p }: { goal: Goal; metric: Metric | undefined; progress: Progress }) {
-  const badge = BADGES[p.status];
   const name = title(goal, metric);
   return (
     <li className="rounded-2xl border border-border bg-surface py-3 pl-4 pr-2">
@@ -115,7 +101,7 @@ function GoalCard({ goal, metric, progress: p }: { goal: Goal; metric: Metric | 
         <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-track">
           <div className={`h-full rounded-full ${p.status === "behind" ? "bg-bad" : "bg-good"}`} style={{ width: `${(p.fraction ?? 0) * 100}%` }} />
         </div>
-        <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium ${badge.className}`}>{badge.text}</span>
+        <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium ${BADGES[p.status]}`}>{GOAL_STATUS_LABELS[p.status]}</span>
       </div>
     </li>
   );

@@ -1,4 +1,6 @@
-export type Role = "core" | "bonus" | "penalty";
+export type Role = "core" | "bonus" | "penalty" | "track";
+// daily: scored on the day's own value. trend: scored on whether the 7-day average moves toward the target.
+export type Scoring = "daily" | "trend";
 export type InputKind = "number" | "bool" | "rating";
 
 export type Section = {
@@ -14,7 +16,9 @@ export type Metric = {
   role: Role;
   input: InputKind;
   unit: string;
+  scoring: Scoring;
   // core/bonus: value that earns full points. penalty: value that costs full points.
+  // trend: the value to reach (0 = no goal set yet).
   target: number;
   // penalty only: amount allowed before any points are lost.
   free: number;
@@ -31,6 +35,7 @@ export const ROLE_LABELS: Record<Role, string> = {
   core: "Βασικός",
   bonus: "Μπόνους",
   penalty: "Ποινή",
+  track: "Μόνο καταγραφή",
 };
 
 export const INPUT_LABELS: Record<InputKind, string> = {
@@ -52,13 +57,14 @@ const m = (
   free: number,
   points: number,
   step: number,
-): Metric => ({ id, sectionId, name, role, input, unit, target, free, points, step, archived: false });
+): Metric => ({ id, sectionId, name, role, input, scoring: "daily", unit, target, free, points, step, archived: false });
 
 // Starting template for a new database; everything in it can be changed from Settings.
 export const DEFAULT_CONFIG: Config = {
   sections: [
     { id: "work", name: "Δουλειά & δημιουργία", archived: false },
     { id: "health", name: "Υγεία", archived: false },
+    { id: "mood", name: "Διάθεση", archived: false },
     { id: "life", name: "Ζωή", archived: false },
     { id: "avoid", name: "Προς αποφυγή", archived: false },
   ],
@@ -70,6 +76,10 @@ export const DEFAULT_CONFIG: Config = {
     m("sleep", "health", "Ύπνος", "core", "number", "ώρες", 7.5, 0, 20, 0.25),
     m("nutrition", "health", "Διατροφή", "core", "rating", "/5", 4, 0, 20, 1),
     m("steps", "health", "Βήματα", "core", "number", "βήματα", 8000, 0, 10, 500),
+    { ...m("weight", "health", "Βάρος", "core", "number", "κιλά", 0, 0, 5, 0.1), scoring: "trend" },
+
+    m("mood", "mood", "Διάθεση", "track", "rating", "/5", 4, 0, 0, 1),
+    m("energy", "mood", "Ενέργεια", "track", "rating", "/5", 4, 0, 0, 1),
 
     m("reading", "life", "Διάβασμα βιβλίου", "bonus", "number", "λεπτά", 30, 0, 5, 5),
     m("friends", "life", "Συνάντηση με φίλους", "bonus", "bool", "", 1, 0, 4, 1),
@@ -94,7 +104,7 @@ export function activeSections(config: Config): Section[] {
   return config.sections.filter((s) => !s.archived);
 }
 
-// Metrics that count toward the score, in display order. Core weights are rescaled so that
+// Active metrics in display order, including track-only ones. Core weights are rescaled so that
 // a perfect day is always worth CORE_TOTAL, however many core metrics exist.
 export function scoringMetrics(config: Config): Metric[] {
   const order = new Map(activeSections(config).map((s, i) => [s.id, i]));

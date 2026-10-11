@@ -11,8 +11,11 @@ Metrics live in sections you define (for example Health, Work, Life). Each metri
 - **Core**: the things a good day is made of. Core metrics always share 100 points in proportion to their weight, however many you add, and each earns points by how close you got to its target.
 - **Bonus**: things that are good but not expected every day, such as reading or meeting friends. They add points.
 - **Penalty**: things you want less of, such as YouTube or impulse spending. They remove points, optionally after a free allowance.
+- **Track only**: recorded and shown in statistics, but never part of the score. Mood and energy start this way.
 
-The total is clamped to 0–100. Sections, metrics, targets and points are editable under Settings; past days are rescored with the current rules. The app starts with a template of 13 metrics.
+A number can also be scored on its **trend** instead of the day's value: weight earns its points while the 7-day average moves toward your goal. Each day also has a free-text note.
+
+The total is clamped to 0–100. Sections, metrics, targets and points are editable under Settings; past days are rescored with the current rules. The app starts with a template you can change.
 
 ## Statistics
 

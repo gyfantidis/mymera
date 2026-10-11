@@ -1,13 +1,25 @@
 import { toValues, type Range } from "./db";
 import type { Metric } from "./metrics";
 import { monthShort, weekStart, weekdayShort, type Period } from "./periods";
-import { dayScore } from "./score";
+import { dayScore, type Series } from "./score";
 
 export type DayPoint = { day: string; score: number | null };
 
+// Values by day for each trend-scored metric.
+export function trendHistory(metrics: Metric[], range: Range): Record<string, Series> {
+  const out: Record<string, Series> = {};
+  for (const m of metrics) {
+    if (m.scoring !== "trend") continue;
+    out[m.id] = Object.fromEntries(Object.entries(range).flatMap(([day, e]) => (e[m.id] ? [[day, e[m.id].value]] : [])));
+  }
+  return out;
+}
+
 // Days without any entry get a null score and are left out of every average.
+// `range` must reach TREND_LOOKBACK days before the first day for trend metrics to score correctly.
 export function dayPoints(metrics: Metric[], range: Range, days: string[]): DayPoint[] {
-  return days.map((day) => ({ day, score: range[day] ? dayScore(metrics, toValues(range[day])).total : null }));
+  const history = trendHistory(metrics, range);
+  return days.map((day) => ({ day, score: range[day] ? dayScore(metrics, toValues(range[day]), day, history).total : null }));
 }
 
 export function average(points: DayPoint[]): number | null {

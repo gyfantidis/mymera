@@ -11,6 +11,7 @@ import {
   type InputKind,
   type Metric,
   type Role,
+  type Scoring,
   type Section,
 } from "@/lib/metrics";
 
@@ -21,10 +22,15 @@ const toDraft = (m: Metric): Draft => ({ ...m, target: String(m.target), free: S
 const num = (s: string) => (s.trim() === "" ? NaN : Number(s.replace(",", ".")));
 const newId = (prefix: string) => `${prefix}_${crypto.randomUUID().slice(0, 8)}`;
 
+// Trend scoring is offered for numbers that are not penalties.
+const canTrend = (m: Draft) => m.input === "number" && m.role !== "penalty";
+const isTrend = (m: Draft) => m.scoring === "trend" && canTrend(m);
+
 function problem(m: Draft): string | null {
   if (!m.name.trim()) return "Λείπει το όνομα.";
-  if (!(num(m.points) >= 0)) return "Οι πόντοι πρέπει να είναι αριθμός ≥ 0.";
+  if (m.role !== "track" && !(num(m.points) >= 0)) return "Οι πόντοι πρέπει να είναι αριθμός ≥ 0.";
   if (m.input === "bool") return null;
+  if (isTrend(m)) return num(m.target) >= 0 ? null : "Ο στόχος πρέπει να είναι αριθμός ≥ 0.";
   if (!(num(m.target) > 0)) return "Ο στόχος πρέπει να είναι αριθμός > 0.";
   if (m.input === "rating" && num(m.target) > 5) return "Ο στόχος της βαθμολογίας είναι έως 5.";
   if (m.input === "number" && m.role === "penalty") {
@@ -101,7 +107,7 @@ export default function SettingsForm({ config }: { config: Config }) {
     const id = newId("m");
     setMetrics([
       ...metrics,
-      { id, sectionId, name: "", role: "bonus", input: "bool", unit: "", target: "1", free: "0", points: "3", step: 1, archived: false },
+      { id, sectionId, name: "", role: "bonus", input: "bool", scoring: "daily", unit: "", target: "1", free: "0", points: "3", step: 1, archived: false },
     ]);
     setCreated(new Set(created).add(id));
     setOpen(id);
@@ -142,7 +148,8 @@ export default function SettingsForm({ config }: { config: Config }) {
           ...m,
           target,
           free: num(m.free) || 0,
-          points: num(m.points),
+          points: m.role === "track" ? 0 : num(m.points),
+          scoring: isTrend(m) ? "trend" : "daily",
           step: created.has(m.id) ? defaultStep(target) : m.step,
         };
       }),
@@ -205,9 +212,12 @@ export default function SettingsForm({ config }: { config: Config }) {
                         <span className="font-medium">{m.name.trim() || "Νέος τομέας"}</span>
                         <span className="block text-xs text-muted">
                           {ROLE_LABELS[m.role]} · {INPUT_LABELS[m.input]}
+                          {isTrend(m) && " · τάση"}
                           {m.role === "core"
                             ? ` · ${share.toFixed(1)} από τα ${CORE_TOTAL}`
-                            : ` · ${m.role === "penalty" ? "−" : "+"}${m.points} πόντοι`}
+                            : m.role === "track"
+                              ? ""
+                              : ` · ${m.role === "penalty" ? "−" : "+"}${m.points} πόντοι`}
                         </span>
                         {err && <span className="block text-xs text-bad">{err}</span>}
                       </span>
@@ -254,10 +264,21 @@ export default function SettingsForm({ config }: { config: Config }) {
                             <span className="flex h-9 items-center text-sm text-fg">{INPUT_LABELS[m.input]}</span>
                           )}
                         </label>
-                        <label>
-                          {m.role === "core" ? "Βάρος" : "Πόντοι"}
-                          <input className={field} inputMode="decimal" value={m.points} onChange={(e) => patchMetric(m.id, { points: e.target.value })} />
-                        </label>
+                        {m.role !== "track" && (
+                          <label>
+                            {m.role === "core" ? "Βάρος στο σκορ" : "Πόντοι"}
+                            <input className={field} inputMode="decimal" value={m.points} onChange={(e) => patchMetric(m.id, { points: e.target.value })} />
+                          </label>
+                        )}
+                        {canTrend(m) && (
+                          <label>
+                            Υπολογισμός
+                            <select className={field} value={m.scoring} onChange={(e) => patchMetric(m.id, { scoring: e.target.value as Scoring })}>
+                              <option value="daily">Τιμή της ημέρας</option>
+                              <option value="trend">Τάση 7 ημερών προς στόχο</option>
+                            </select>
+                          </label>
+                        )}
                         {m.input === "number" && (
                           <label>
                             Μονάδα
@@ -266,7 +287,7 @@ export default function SettingsForm({ config }: { config: Config }) {
                         )}
                         {m.input !== "bool" && (
                           <label>
-                            {m.role === "penalty" ? "Μέγιστη ποινή στα" : "Στόχος"}
+                            {m.role === "penalty" ? "Μέγιστη ποινή στα" : isTrend(m) ? "Στόχος (0 = χωρίς στόχο)" : "Στόχος"}
                             <input className={field} inputMode="decimal" value={m.target} onChange={(e) => patchMetric(m.id, { target: e.target.value })} />
                           </label>
                         )}

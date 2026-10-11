@@ -5,7 +5,9 @@ import { getConfig, getRange } from "@/lib/db";
 import { addDays, dayOf, formatDay, isDay } from "@/lib/dates";
 import { activeSections, scoringMetrics } from "@/lib/metrics";
 import { PERIODS, PERIOD_LABELS, daysIn, isPeriod, periodLabel, periodRange, shiftPeriod, weekStart, type Period } from "@/lib/periods";
-import { average, buckets, dayPoints, metricStats, type Bucket, type DayPoint, type MetricStat } from "@/lib/stats";
+import type { Metric } from "@/lib/metrics";
+import { TREND_LOOKBACK, windowAverage, type Series } from "@/lib/score";
+import { average, buckets, dayPoints, metricStats, trendHistory, type Bucket, type DayPoint, type MetricStat } from "@/lib/stats";
 
 export default function Page({ searchParams }: PageProps<"/stats">) {
   return (
@@ -28,7 +30,7 @@ async function Stats({ searchParams }: Pick<PageProps<"/stats">, "searchParams">
   const prev = periodRange(period, shiftPeriod(period, from, -1));
   const next = shiftPeriod(period, from, 1);
 
-  const [range, config] = await Promise.all([getRange(prev.from, to), getConfig()]);
+  const [range, config] = await Promise.all([getRange(addDays(prev.from, -TREND_LOOKBACK), to), getConfig()]);
   const metrics = scoringMetrics(config);
 
   const points = dayPoints(metrics, range, daysIn(from, to));
@@ -40,6 +42,8 @@ async function Stats({ searchParams }: Pick<PageProps<"/stats">, "searchParams">
   const best = logged.reduce<(typeof logged)[number] | null>((a, b) => (a && a.score >= b.score ? a : b), null);
   const worst = logged.reduce<(typeof logged)[number] | null>((a, b) => (a && a.score <= b.score ? a : b), null);
   const stats = metricStats(metrics, range, elapsed.map((x) => x.day));
+  const series = trendHistory(metrics, range);
+  const trendMetrics = metrics.filter((m) => m.scoring === "trend");
 
   const tab = (active: boolean) => `flex-1 rounded-lg py-1.5 text-center text-sm ${active ? "bg-surface font-medium shadow-sm" : "text-muted hover:text-fg"}`;
   const arrow = "rounded-lg px-3 py-2 text-muted hover:bg-track";
@@ -109,6 +113,17 @@ async function Stats({ searchParams }: Pick<PageProps<"/stats">, "searchParams">
             <section>
               <h2 className="mb-2 text-xs font-medium uppercase tracking-wider text-muted">Ημερολόγιο</h2>
               <Heatmap points={points} from={from} to={to} today={today} />
+            </section>
+          )}
+
+          {trendMetrics.length > 0 && (
+            <section>
+              <h2 className="mb-2 text-xs font-medium uppercase tracking-wider text-muted">Τάσεις</h2>
+              <div className="flex flex-col gap-3">
+                {trendMetrics.map((m) => (
+                  <TrendCard key={m.id} metric={m} series={series[m.id] ?? {}} days={elapsed.map((x) => x.day)} span={points.length} />
+                ))}
+              </div>
             </section>
           )}
 
@@ -200,6 +215,61 @@ function Heatmap({ points, from, to, today }: { points: DayPoint[]; from: string
   );
 }
 
+// Logged values as dots, their 7-day average as a line, the goal as a dashed line.
+function TrendCard({ metric: m, series, days, span }: { metric: Metric; series: Series; days: string[]; span: number }) {
+  const W = 600;
+  const H = 150;
+  const values = days.map((d) => series[d]);
+  const averages = days.map((d) => windowAverage(series, d));
+  const known = [...values, ...averages].filter((v): v is number => v != null);
+  const first = averages.find((v) => v !== null) ?? null;
+  const last = averages.findLast((v) => v !== null) ?? null;
+
+  if (known.length === 0 || first == null || last == null) {
+    return (
+      <div className="rounded-2xl border border-border bg-surface p-4">
+        <p className="font-medium">{m.name}</p>
+        <p className="text-xs text-muted">Χωρίς μετρήσεις σε αυτή την περίοδο.</p>
+      </div>
+    );
+  }
+
+  const all = m.target > 0 ? [...known, m.target] : known;
+  const min = Math.min(...all);
+  const max = Math.max(...all);
+  const pad = (max - min) * 0.15 || 1;
+  const x = (i: number) => (span > 1 ? (i / (span - 1)) * W : W / 2);
+  const y = (v: number) => H - ((v - (min - pad)) / (max - min + 2 * pad)) * H;
+  const line = averages.flatMap((v, i) => (v === null ? [] : [`${x(i).toFixed(1)},${y(v).toFixed(1)}`])).join(" ");
+  const change = Math.round((last - first) * 10) / 10;
+
+  return (
+    <div className="rounded-2xl border border-border bg-surface p-4">
+      <div className="flex items-baseline justify-between gap-3">
+        <p className="font-medium">{m.name}</p>
+        <p className="tabular-nums">
+          {nf.format(last)} {m.unit}
+          <span className="ml-1 text-[10px] text-muted">μ.ό. 7 ημερών</span>
+        </p>
+      </div>
+      <p className="text-xs text-muted">
+        {change === 0 ? "Σταθερό" : `${change > 0 ? "+" : "−"}${nf.format(Math.abs(change))} ${m.unit}`} στην περίοδο
+        {m.target > 0 && ` · απομένουν ${nf.format(Math.abs(last - m.target))} ${m.unit} για τον στόχο των ${nf.format(m.target)}`}
+      </p>
+      <svg viewBox={`0 0 ${W} ${H}`} className="mt-3 w-full" role="img" aria-label={`Γράφημα: ${m.name}`}>
+        {m.target > 0 && (
+          <line x1="0" x2={W} y1={y(m.target)} y2={y(m.target)} className="stroke-muted" strokeWidth="1" strokeDasharray="4 4" />
+        )}
+        <polyline points={line} fill="none" className="stroke-good" strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" />
+        {values.map((v, i) => (v === undefined ? null : <circle key={days[i]} cx={x(i)} cy={y(v)} r="3" className="fill-muted" />))}
+      </svg>
+      <p className="mt-1 text-[10px] text-muted">
+        Τελείες: μετρήσεις. Γραμμή: μέσος όρος 7 ημερών.{m.target > 0 && " Διακεκομμένη: στόχος."}
+      </p>
+    </div>
+  );
+}
+
 function MetricRow({ stat: { metric: m, logged, total, hits } }: { stat: MetricStat }) {
   const penalty = m.role === "penalty";
   let main: string;
@@ -213,6 +283,9 @@ function MetricRow({ stat: { metric: m, logged, total, hits } }: { stat: MetricS
   } else if (m.input === "rating") {
     main = `${nf.format(total / logged)} / 5`;
     detail = `στόχος σε ${hits} από ${logged} μέρες`;
+  } else if (m.scoring === "trend") {
+    main = `${nf.format(total / logged)} ${m.unit}`;
+    detail = `${logged} ${logged === 1 ? "μέτρηση" : "μετρήσεις"}`;
   } else {
     main = `${nf.format(total / logged)} ${m.unit}`;
     detail = `σύνολο ${nf.format(total)} · ${penalty ? `ποινή σε ${hits}` : `στόχος σε ${hits}`} από ${logged} μέρες`;

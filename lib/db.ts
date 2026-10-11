@@ -1,30 +1,31 @@
 import postgres from "postgres";
-import { DEFAULT_CONFIG, type Config, type InputKind, type Role } from "./metrics";
+import { DEFAULT_CONFIG, type Config, type InputKind, type Role, type Scoring } from "./metrics";
 import { MIGRATIONS } from "./migrations";
 import type { Values } from "./score";
 
 type Sql = postgres.Sql;
 
 // Kept on globalThis so dev hot reloads reuse one connection pool instead of leaking a new one each time.
-const globals = globalThis as { mymeraDb?: Promise<Sql> };
+// Migrations are re-checked whenever their number changes, so a hot reload that adds one applies it.
+const globals = globalThis as { mymeraSql?: Sql; mymeraMigrated?: { count: number; done: Promise<void> } };
 
-function db(): Promise<Sql> {
-  globals.mymeraDb ??= (async () => {
+async function db(): Promise<Sql> {
+  if (!globals.mymeraSql) {
     const url = process.env.DATABASE_URL;
     if (!url) throw new Error("DATABASE_URL is not set. Copy .env.example to .env.local and run `npm run db:up`.");
-    const sql = postgres(url, { max: 5, onnotice: () => {} });
-    try {
-      await migrate(sql);
-    } catch (e) {
-      await sql.end();
-      throw e;
-    }
-    return sql;
-  })().catch((e) => {
-    globals.mymeraDb = undefined;
-    throw e;
-  });
-  return globals.mymeraDb;
+    globals.mymeraSql = postgres(url, { max: 5, onnotice: () => {} });
+  }
+  const sql = globals.mymeraSql;
+  if (globals.mymeraMigrated?.count !== MIGRATIONS.length) {
+    const done = migrate(sql);
+    globals.mymeraMigrated = { count: MIGRATIONS.length, done };
+    // A failed run is forgotten so the next request retries it.
+    done.catch(() => {
+      if (globals.mymeraMigrated?.done === done) globals.mymeraMigrated = undefined;
+    });
+  }
+  await globals.mymeraMigrated.done;
+  return sql;
 }
 
 async function migrate(sql: Sql) {
@@ -54,10 +55,10 @@ async function writeConfig(tx: postgres.TransactionSql, config: Config) {
              ON CONFLICT (id) DO UPDATE SET name = excluded.name, position = excluded.position, archived = excluded.archived`;
   }
   for (const [i, m] of config.metrics.entries()) {
-    await tx`INSERT INTO metrics (id, section_id, name, role, input, unit, target, free, points, step, position, archived)
-             VALUES (${m.id}, ${m.sectionId}, ${m.name}, ${m.role}, ${m.input}, ${m.unit}, ${m.target}, ${m.free}, ${m.points}, ${m.step}, ${i}, ${m.archived})
+    await tx`INSERT INTO metrics (id, section_id, name, role, input, scoring, unit, target, free, points, step, position, archived)
+             VALUES (${m.id}, ${m.sectionId}, ${m.name}, ${m.role}, ${m.input}, ${m.scoring}, ${m.unit}, ${m.target}, ${m.free}, ${m.points}, ${m.step}, ${i}, ${m.archived})
              ON CONFLICT (id) DO UPDATE SET section_id = excluded.section_id, name = excluded.name, role = excluded.role,
-               unit = excluded.unit, target = excluded.target, free = excluded.free, points = excluded.points,
+               scoring = excluded.scoring, unit = excluded.unit, target = excluded.target, free = excluded.free, points = excluded.points,
                step = excluded.step, position = excluded.position, archived = excluded.archived`;
   }
 }
@@ -76,6 +77,7 @@ export async function getConfig(): Promise<Config> {
       name: r.name as string,
       role: r.role as Role,
       input: r.input as InputKind,
+      scoring: r.scoring as Scoring,
       unit: r.unit as string,
       target: r.target as number,
       free: r.free as number,
@@ -117,4 +119,18 @@ export async function setEntry(day: string, metric: string, value: number | null
                         SELECT ${day}::date, id, ${value}, ${source} FROM metrics WHERE id = ${metric}
                         ON CONFLICT (day, metric) DO UPDATE SET value = excluded.value, source = excluded.source, updated_at = now()`;
   return res.count > 0;
+}
+
+export async function getNote(day: string): Promise<string> {
+  const sql = await db();
+  const rows = await sql`SELECT note FROM day_notes WHERE day = ${day}::date`;
+  return (rows[0]?.note as string | undefined) ?? "";
+}
+
+export async function setNote(day: string, note: string) {
+  const sql = await db();
+  if (note === "") await sql`DELETE FROM day_notes WHERE day = ${day}::date`;
+  else
+    await sql`INSERT INTO day_notes (day, note) VALUES (${day}::date, ${note})
+              ON CONFLICT (day) DO UPDATE SET note = excluded.note, updated_at = now()`;
 }

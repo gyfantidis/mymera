@@ -1,9 +1,16 @@
 "use server";
 
 import { refresh } from "next/cache";
-import { getConfig, saveConfig, setEntry } from "@/lib/db";
+import { getConfig, saveConfig, setEntry, setNote } from "@/lib/db";
 import { isDay } from "@/lib/dates";
 import type { Config, InputKind, Metric, Role } from "@/lib/metrics";
+
+const NOTE_MAX = 2000;
+
+export async function saveNote(day: string, note: string) {
+  if (!isDay(day) || typeof note !== "string") throw new Error("Invalid note");
+  await setNote(day, note.trim().slice(0, NOTE_MAX));
+}
 
 export async function saveEntry(day: string, metric: string, value: number | null) {
   if (!isDay(day)) throw new Error("Invalid day");
@@ -13,7 +20,7 @@ export async function saveEntry(day: string, metric: string, value: number | nul
 }
 
 const ID = /^[a-z0-9_-]{1,40}$/;
-const ROLES: Role[] = ["core", "bonus", "penalty"];
+const ROLES: Role[] = ["core", "bonus", "penalty", "track"];
 const INPUTS: InputKind[] = ["number", "bool", "rating"];
 
 const isName = (s: unknown): s is string => typeof s === "string" && s.trim().length > 0 && s.length <= 60;
@@ -37,18 +44,21 @@ export async function saveSettings(input: Config) {
     if (![m.target, m.free, m.points, m.step].every(isAmount)) throw new Error("Invalid metric numbers");
     if (typeof m.unit !== "string" || m.unit.length > 20) throw new Error("Invalid unit");
     seen.add(m.id);
+    // Trend scoring only makes sense for numbers that are not penalties; a target of 0 means "no goal yet".
+    const scoring = m.scoring === "trend" && kind === "number" && m.role !== "penalty" ? "trend" : "daily";
     const target = kind === "bool" ? 1 : kind === "rating" ? Math.min(5, Math.max(1, m.target)) : m.target;
-    if (target <= 0) throw new Error("Target must be positive");
+    if (target <= 0 && scoring !== "trend") throw new Error("Target must be positive");
     return {
       id: m.id,
       sectionId: m.sectionId,
       name: m.name.trim(),
       role: m.role,
       input: kind,
+      scoring,
       unit: kind === "number" ? m.unit.trim() : kind === "rating" ? "/5" : "",
       target,
       free: kind === "number" && m.role === "penalty" ? Math.min(m.free, target) : 0,
-      points: m.points,
+      points: m.role === "track" ? 0 : m.points,
       step: kind === "number" && m.step > 0 ? m.step : 1,
       archived: !!m.archived,
     };

@@ -29,4 +29,30 @@ export const MIGRATIONS: string[] = [
      updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
      PRIMARY KEY (day, metric)
    );`,
+
+  // Track-only role, trend scoring, daily notes. Installs that already have data also get the
+  // new template items (weight, mood, energy); fresh installs get them from DEFAULT_CONFIG.
+  `ALTER TABLE metrics DROP CONSTRAINT metrics_role_check;
+   ALTER TABLE metrics ADD CONSTRAINT metrics_role_check CHECK (role IN ('core', 'bonus', 'penalty', 'track'));
+   ALTER TABLE metrics ADD COLUMN scoring TEXT NOT NULL DEFAULT 'daily' CHECK (scoring IN ('daily', 'trend'));
+   CREATE TABLE day_notes (
+     day DATE PRIMARY KEY,
+     note TEXT NOT NULL,
+     updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+   );
+   INSERT INTO sections (id, name, position)
+     SELECT 'mood', 'Διάθεση', (SELECT max(position) + 1 FROM sections)
+     WHERE EXISTS (SELECT 1 FROM sections)
+     ON CONFLICT DO NOTHING;
+   INSERT INTO metrics (id, section_id, name, role, input, scoring, unit, target, free, points, step, position)
+     SELECT v.id, COALESCE((SELECT id FROM sections WHERE id = v.section), (SELECT id FROM sections ORDER BY position LIMIT 1)),
+            v.name, v.role, v.input, v.scoring, v.unit, v.target, 0, v.points, v.step,
+            (SELECT max(position) FROM metrics) + v.n
+     FROM (VALUES
+       ('weight', 'health', 'Βάρος', 'core', 'number', 'trend', 'κιλά', 0, 5, 0.1, 1),
+       ('mood', 'mood', 'Διάθεση', 'track', 'rating', 'daily', '/5', 4, 0, 1, 2),
+       ('energy', 'mood', 'Ενέργεια', 'track', 'rating', 'daily', '/5', 4, 0, 1, 3)
+     ) AS v (id, section, name, role, input, scoring, unit, target, points, step, n)
+     WHERE EXISTS (SELECT 1 FROM sections)
+     ON CONFLICT DO NOTHING;`,
 ];
